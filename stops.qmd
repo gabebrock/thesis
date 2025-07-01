@@ -1,0 +1,122 @@
+---
+title: "stops"
+output: html_document
+---
+
+
+```{r prepping doc and data}
+
+# list of required packages
+required_packages <- c("tidyverse", "readxl", "mapview", "sf")
+
+# install any missing packages
+installed_packages <- rownames(installed.packages())
+for (pkg in required_packages) {
+  if (!pkg %in% installed_packages) {
+    install.packages(pkg)
+  }
+}
+
+library(tidyverse)
+library(readxl)
+library(mapview)
+library(sf)
+
+sqf2024 <- read_excel("r-data/nypd-stop/sqf-2024.xlsx")
+
+sqf2024 <- sqf2024 %>%
+  mutate(STOP_FRISK_DATE = as.Date(STOP_FRISK_DATE, origin = "1900-01-01"),
+         STOP_LOCATION_X = as.numeric(STOP_LOCATION_X),
+         STOP_LOCATION_Y = as.numeric(STOP_LOCATION_Y))
+
+```
+
+
+```{r}
+
+# stop breakdown, by race and arrest rate
+stopsByRace <- sqf2024 %>% 
+  group_by(SUSPECT_RACE_DESCRIPTION, SUSPECT_ARRESTED_FLAG) %>%
+  count() %>%
+  ungroup(SUSPECT_ARRESTED_FLAG)
+
+# proportion of overall stops that result in arrest, by race
+stopsByRace <- stopsByRace %>%
+  mutate(prop = round(n / sum(n), 2))
+
+```
+
+```{r}
+
+# stop breakdown, by race and boro
+stopsByBoro <- sqf2024 %>% 
+  group_by(SUSPECT_RACE_DESCRIPTION, STOP_LOCATION_BORO_NAME) %>%
+  count() %>%
+  ungroup(STOP_LOCATION_BORO_NAME)
+
+# proportion of overall stops in each boro, by race
+stopsByBoro <- stopsByBoro %>%
+  mutate(prop = round(n / sum(n), 2))
+
+
+```
+
+```{r creating a map of nyc}
+# grab boro boundaries geoJSON file from NYC Planning website
+# Borough Boundaries (Clipped to Shoreline)
+# Date of Data: May 2025
+  # https://www.nyc.gov/content/planning/pages/resources/datasets/borough-boundaries
+
+# initialize geospatial data available at the geojson format
+nyc_geojson <- tempfile(fileext = ".pgeojson")
+
+# download boro boundaries json file
+download.file(
+  "https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Borough_Boundary/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson",
+  nyc_geojson)
+
+# read the nyc json file to a shapefile
+nyc_sf <- read_sf(nyc_geojson)
+
+# plot the NYC map
+nycMAP <- ggplot(nyc_sf) +
+  geom_sf(fill = "white", color = "black", linewidth = 0.3) +
+  theme_void()
+
+```
+
+```{r}
+
+# convert coordinates from sqf data to sf object
+stops_sf <- sqf2024 %>%
+  drop_na(STOP_LOCATION_X, STOP_LOCATION_Y) %>%
+  st_as_sf(coords = c("STOP_LOCATION_X", "STOP_LOCATION_Y"), crs = 2263) %>%
+  st_transform(crs = 4326)
+
+# dot stop map
+nycMAP <- ggplot(nyc_sf) +
+  geom_sf(fill = "white", color = "black", linewidth = 0.3) +
+  geom_sf(data = stops_sf, aes(geometry = geometry), color = "red", size = 0.5) + 
+  coord_sf(xlim = c(-74.3, -73.65), ylim = c(40.48, 40.95)) +
+  theme_void()
+
+# stop heat map
+nycMAPheat <- ggplot() +
+  geom_sf(data = nyc_sf, fill = "white", color = "black", linewidth = 0.3) +
+  stat_bin_2d(
+    data = stops_sf,
+    aes(x = st_coordinates(stops_sf)[,1],
+        y = st_coordinates(stops_sf)[,2],
+        fill = after_stat(count)),
+    bins = 500
+  ) +
+  scale_fill_viridis_c(option = "plasma", trans = "log") +
+  coord_sf(xlim = c(-74.3, -73.65), ylim = c(40.48, 40.95)) +
+  theme_void()
+
+print(nycMAP)
+print(nycMAPheat)
+```
+
+
+
