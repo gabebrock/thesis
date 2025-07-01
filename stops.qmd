@@ -9,7 +9,7 @@ output: html_document
 # list of required packages
 required_packages <- c("tidyverse", "readxl", "mapview", "sf")
 
-# install any missing packages
+# check and install any missing packages
 installed_packages <- rownames(installed.packages())
 for (pkg in required_packages) {
   if (!pkg %in% installed_packages) {
