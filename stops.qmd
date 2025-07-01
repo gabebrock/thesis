@@ -3,7 +3,6 @@ title: "stops"
 output: html_document
 ---
 
-
 ```{r prepping doc and data}
 
 # list of required packages
@@ -17,36 +16,50 @@ for (pkg in required_packages) {
   }
 }
 
+# load libraries
 library(tidyverse)
 library(readxl)
 library(mapview)
 library(sf)
 
+# load 2024 sqf data
 sqf2024 <- read_excel("r-data/nypd-stop/sqf-2024.xlsx")
 
+# tidy fields
 sqf2024 <- sqf2024 %>%
   mutate(STOP_FRISK_DATE = as.Date(STOP_FRISK_DATE, origin = "1900-01-01"),
          STOP_LOCATION_X = as.numeric(STOP_LOCATION_X),
          STOP_LOCATION_Y = as.numeric(STOP_LOCATION_Y))
 
+
 ```
 
-
-```{r}
+```{r quick stop analysis}
 
 # stop breakdown, by race and arrest rate
 stopsByRace <- sqf2024 %>% 
-  group_by(SUSPECT_RACE_DESCRIPTION, SUSPECT_ARRESTED_FLAG) %>%
+  group_by(SUSPECT_RACE_DESCRIPTION) %>%
   count() %>%
-  ungroup(SUSPECT_ARRESTED_FLAG)
+  ungroup()
 
-# proportion of overall stops that result in arrest, by race
+# racial proportion of overall stops
 stopsByRace <- stopsByRace %>%
   mutate(prop = round(n / sum(n), 2))
 
+# stops by race, including stops that resulted in an arrest
+stopsByRaceArrests <- sqf2024 %>% 
+  group_by(SUSPECT_RACE_DESCRIPTION, SUSPECT_ARRESTED_FLAG) %>%
+  count() %>%
+  ungroup(SUSPECT_RACE_DESCRIPTION)
+
+# proportion of overall stops that result in arrest, by race
+stopsByRaceArrests <- stopsByRaceArrests %>%
+  mutate(prop = round(n / sum(n), 2))
+
+
 ```
 
-```{r}
+```{r stop analysis, by boro}
 
 # stop breakdown, by race and boro
 stopsByBoro <- sqf2024 %>% 
@@ -61,7 +74,7 @@ stopsByBoro <- stopsByBoro %>%
 
 ```
 
-```{r creating a map of nyc}
+```{r map of nyc}
 # grab boro boundaries geoJSON file from NYC Planning website
 # Borough Boundaries (Clipped to Shoreline)
 # Date of Data: May 2025
@@ -85,10 +98,10 @@ nycMAP <- ggplot(nyc_sf) +
 
 ```
 
-```{r}
+```{r mapping stops to nyc map}
 
 # convert coordinates from sqf data to sf object
-stops_sf <- sqf2024 %>%
+stops2024_sf <- sqf2024 %>%
   drop_na(STOP_LOCATION_X, STOP_LOCATION_Y) %>%
   st_as_sf(coords = c("STOP_LOCATION_X", "STOP_LOCATION_Y"), crs = 2263) %>%
   st_transform(crs = 4326)
@@ -96,27 +109,146 @@ stops_sf <- sqf2024 %>%
 # dot stop map
 nycMAP <- ggplot(nyc_sf) +
   geom_sf(fill = "white", color = "black", linewidth = 0.3) +
-  geom_sf(data = stops_sf, aes(geometry = geometry), color = "red", size = 0.5) + 
+  geom_sf(
+    data = stops2024_sf,
+    aes(geometry = geometry, color = SUSPECT_RACE_DESCRIPTION),
+    size = 0.25,
+    alpha = 0.4) +         
   coord_sf(xlim = c(-74.3, -73.65), ylim = c(40.48, 40.95)) +
-  theme_void()
+  theme_void() +
+  scale_color_viridis_d(option = "B") +
+  labs(color = "Suspect Race or Ethnicity") +
+  theme(
+    legend.key = element_rect(fill = NA, color = NA),         # remove default key background
+    legend.key.size = unit(0.5, "cm"),                         # shrink key size
+    legend.text = element_text(size = 7),                      # smaller labels
+    legend.title = element_text(size = 8),                     # smaller title
+    legend.spacing.y = unit(0.2, "cm"),                        # tighter vertical spacing
+    legend.box.spacing = unit(0.3, "cm")                       # spacing around the legend box
+  ) +
+  guides(color = guide_legend(override.aes = list(shape = 15, size = 4)))  # squares
+print(nycMAP)
+
 
 # stop heat map
 nycMAPheat <- ggplot() +
   geom_sf(data = nyc_sf, fill = "white", color = "black", linewidth = 0.3) +
   stat_bin_2d(
-    data = stops_sf,
-    aes(x = st_coordinates(stops_sf)[,1],
-        y = st_coordinates(stops_sf)[,2],
+    data = stops2024_sf,
+    aes(x = st_coordinates(stops2024_sf)[,1],
+        y = st_coordinates(stops2024_sf)[,2],
         fill = after_stat(count)),
     bins = 500
   ) +
   scale_fill_viridis_c(option = "plasma", trans = "log") +
   coord_sf(xlim = c(-74.3, -73.65), ylim = c(40.48, 40.95)) +
   theme_void()
-
-print(nycMAP)
 print(nycMAPheat)
 ```
 
+```{r create map of nypd precincts}
 
+# grab precinct boundaries geoJSON file from NYC Planning website
+# Police Precincts (Clipped to Shoreline)
+# Date of Data: May 2025
+  # https://www.nyc.gov/content/planning/pages/resources/datasets/police-precincts
+
+# initialize geospatial data available at the geojson format
+nypd_geojson <- tempfile(fileext = ".pgeojson")
+
+# download boro boundaries json file
+download.file(
+  "https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Police_Precincts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson",
+  nypd_geojson)
+
+# read the nyc json file to a shapefile
+nypd_sf <- read_sf(nypd_geojson)
+
+# format `Precinct` to match variable name in sqf dfs
+nypd_sf$Precinct <- sprintf("%03d", as.integer(nypd_sf$Precinct))
+
+# plot the NYPD map
+nypdMAP <- ggplot(nypd_sf) +
+  geom_sf(fill = "white", color = "black", linewidth = 0.3) +
+  theme_void()
+
+```
+
+```{r load nypd precinct 2020 census data}
+
+nypdCensus2020 <- read_csv("r-data/census/nyc_precinct_2020pop.csv")
+
+# format `Precinct` to match variable name in sqf dfs
+nypdCensus2020$precinct <- sprintf("%03d", as.integer(nypdCensus2020$precinct))
+
+# census (only one race totals and total 2+ races)
+nypdCensus2020Races <- nypdCensus2020 %>%
+  select(precinct, P1_001N, P1_002N, P1_003N, P1_004N, P1_005N, P1_006N, P1_007N, P1_008N, P1_009N)
+
+# precincts, proportion of black residents
+nypdCensus2020Black <- nypdCensus2020 %>%
+  select(precinct, P1_001N, P1_004N) %>%
+  mutate(prop = round(P1_004N / P1_001N, 2))
+
+```
+
+```{r heat map of black NYC residents, by nypd precinct}
+
+# join census data to spatial precinct data
+nypd_sf <- nypd_sf %>%
+  left_join(nypdCensus2020Black, by = c("Precinct" = "precinct"))
+
+# plot heatmap of proportion Black, by precinct
+blackHeatMap <- ggplot(nypd_sf) +
+  geom_sf(aes(fill = prop), color = "white", linewidth = 0.3) +
+  scale_fill_viridis_c(
+    option = "rocket",
+    name = "Proportion of Black Residents",
+    labels = scales::label_percent(accuracy = 1),
+    na.value = "gray90"
+  ) +
+  theme_void() +
+  labs(title = "Proportion of Black NYC Residents, by NYPD Precinct")
+print(blackHeatMap)
+
+```
+
+```{r heat map of black stops, by nypd precinct}
+
+# census (only one race totals and total 2+ races)
+sqf2024raceTotals <- sqf2024 %>%
+  select(STOP_ID, STOP_LOCATION_PRECINCT, SUSPECT_RACE_DESCRIPTION) %>%
+  group_by(STOP_LOCATION_PRECINCT) %>%
+  count(SUSPECT_RACE_DESCRIPTION)
+
+# precincts, proportion of black residents
+sqf2024raceTotals <- sqf2024raceTotals %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# filter to only include black stops
+sqf2024raceBlack <- sqf2024raceTotals %>%
+  filter(SUSPECT_RACE_DESCRIPTION == "BLACK")
+
+# join census data to spatial precinct data
+nypd_sf <- nypd_sf %>%
+  rename(popPropBlack = prop) %>%
+  left_join(sqf2024raceBlack, by = c("Precinct" = "STOP_LOCATION_PRECINCT")) %>%
+  rename(stopPropBlack = prop)
+
+# plot heatmap of proportion Black stops, by precinct
+blackStopHeatMap <- ggplot(nypd_sf) +
+  geom_sf(aes(fill = stopPropBlack), color = "white", linewidth = 0.3) +
+  scale_fill_viridis_c(
+    option = "rocket",
+    name = "Proportion Black SQFs",
+    labels = scales::label_percent(accuracy = 1),
+    na.value = "gray90"
+  ) +
+  theme_void() +
+  labs(title = "Proportion of Black NYC Residents, by NYPD Precinct")
+
+print(blackHeatMap)
+print(blackStopHeatMap)
+
+```
 
