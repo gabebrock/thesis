@@ -32,8 +32,6 @@ sqf2024 <- sqf2024 %>%
          STOP_LOCATION_Y = as.numeric(STOP_LOCATION_Y)) %>%
   filter(SUSPECT_RACE_DESCRIPTION != "(null)", !is.na(SUSPECT_RACE_DESCRIPTION))
 
-
-
 ```
 
 ```{r quick stop analysis}
@@ -132,20 +130,6 @@ nycMAP <- ggplot(nyc_sf) +
 print(nycMAP)
 
 
-# stop heat map
-nycMAPheat <- ggplot() +
-  geom_sf(data = nyc_sf, fill = "white", color = "black", linewidth = 0.3) +
-  stat_bin_2d(
-    data = stops2024_sf,
-    aes(x = st_coordinates(stops2024_sf)[,1],
-        y = st_coordinates(stops2024_sf)[,2],
-        fill = after_stat(count)),
-    bins = 500
-  ) +
-  scale_fill_viridis_c(option = "plasma", trans = "log") +
-  coord_sf(xlim = c(-74.3, -73.65), ylim = c(40.48, 40.95)) +
-  theme_void()
-print(nycMAPheat)
 ```
 
 ```{r create map of nypd precincts}
@@ -254,7 +238,7 @@ print(blackStopHeatMap)
 
 ```
 
-```{r}
+```{r frisks by race, gender}
 
 # calculate frisks by race
 frisksByRace2024 <- sqf2024 %>%
@@ -286,7 +270,7 @@ frisksByRace2024
 
 ```
 
-```{r}
+```{r searches by race, gender}
 
 # calculate searches by race
 searchesByRace2024 <- sqf2024 %>%
@@ -297,35 +281,25 @@ searchesByRace2024 <- sqf2024 %>%
   ungroup() %>%
   mutate(prop = round(n / sum(n), 2))
 
-# create subtotals by race
-subtotals <- searchesByRace2024 %>%
-  group_by(SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) %>%
-  summarise(n = sum(n), .groups = "drop") %>%
-  mutate(SEARCHED_FLAG = "Subtotal")
-
-# combine racial subtotals with original frisks table 
-searchesByRace2024 <- bind_rows(searchesByRace2024, subtotals) %>%
-  arrange(match(SEARCHED_FLAG, c("Y", "N", "Subtotal")),
-          match(SUSPECT_SEX, c("MALE", "FEMALE")),
-          SUSPECT_RACE_DESCRIPTION)
-
 # pivot wider
 searchesByRace2024 <- searchesByRace2024 %>%
+  arrange(match(SEARCHED_FLAG, c("Y", "N")),
+          match(SUSPECT_SEX, c("MALE", "FEMALE"))) %>%
   mutate(cell = paste0(n, " (", scales::percent(n / sum(n), accuracy = 0.1), " of total stops)")) %>%
   select(SEARCHED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION, cell) %>%
-  pivot_wider(names_from = c(SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX), values_from = cell)
-searchesByRace2024
+  pivot_wider(names_from = c(SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX),
+              values_from = cell)
 
 ```
 
-```{r}
+```{r frisks and searches by race tables}
 
 frisksByRace2024
 searchesByRace2024
 
 ```
 
-```{r}
+```{r suspect demeanor description sentiment analysis}
 
 library(tidytext)
 library(textdata)
@@ -339,16 +313,28 @@ stopDemeanorDesc2024 <- sqf2024 %>%
 
 # get sentiments from AFINN datasets
 # The AFINN lexicon assigns words with a score that runs between -5 and 5, with negative scores indicating negative sentiment and positive scores indicating positive sentiment.
-afinnSentiment <- get_sentiments("afinn")
 
-
+# calculate sentiment score of officer's description of subject's demeanor for each sto
 stopDemeanorSentiment <- stopDemeanorDesc2024 %>%
-  full_join(get_sentiments("afinn"), join_by(DEMEANOR == word)) %>%
-  count(value) 
-
-%>%
-  pivot_wider(names_from = value, values_from = n, values_fill = 0)
+  full_join(get_sentiments("afinn"), join_by(DEMEANOR == word)) %>% # parse through sentiment data set to find and token
+  group_by(SUSPECT_RACE_DESCRIPTION) %>% # group by race
+  drop_na(value) %>% # drop observations with no sentiment score
+  summarize(mean = round(mean(value), 3)) # get mean score for each racial group
 
 ```
 
+```{r}
+
+custom_glimpse <- function(df) {
+  data.frame(
+    col_name = colnames(df),
+    col_index = 1:ncol(df),
+    col_class = sapply(df, class),
+    row.names = NULL
+  )
+}
+
+SQFvariables <- custom_glimpse(sqf2024)
+
+```
 
