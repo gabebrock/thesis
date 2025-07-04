@@ -6,7 +6,7 @@ output: html_document
 ```{r prepping doc and data}
 
 # list of required packages
-required_packages <- c("tidyverse", "readxl", "mapview", "sf")
+required_packages <- c("tidyverse", "readxl", "mapview", "sf", "tinytext", "textdata")
 
 # check and install any missing packages
 installed_packages <- rownames(installed.packages())
@@ -29,7 +29,9 @@ sqf2024 <- read_excel("r-data/nypd-stop/sqf-2024.xlsx")
 sqf2024 <- sqf2024 %>%
   mutate(STOP_FRISK_DATE = as.Date(STOP_FRISK_DATE, origin = "1900-01-01"),
          STOP_LOCATION_X = as.numeric(STOP_LOCATION_X),
-         STOP_LOCATION_Y = as.numeric(STOP_LOCATION_Y))
+         STOP_LOCATION_Y = as.numeric(STOP_LOCATION_Y)) %>%
+  filter(SUSPECT_RACE_DESCRIPTION != "(null)", !is.na(SUSPECT_RACE_DESCRIPTION))
+
 
 
 ```
@@ -251,4 +253,102 @@ print(blackHeatMap)
 print(blackStopHeatMap)
 
 ```
+
+```{r}
+
+# calculate frisks by race
+frisksByRace2024 <- sqf2024 %>%
+  group_by(FRISKED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) %>%
+  filter(SUSPECT_SEX != "(null)", !is.na(SUSPECT_SEX)) %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "BLACK HISPANIC", "WHITE HISPANIC", "WHITE")) %>%
+  count() %>%
+  ungroup() %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# create subtotals by race
+subtotals <- frisksByRace2024 %>%
+  group_by(SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) %>%
+  summarise(n = sum(n), .groups = "drop") %>%
+  mutate(FRISKED_FLAG = "Subtotal")
+
+# combine racial subtotals with original frisks table 
+frisksByRace2024 <- bind_rows(frisksByRace2024, subtotals) %>%
+  arrange(match(FRISKED_FLAG, c("Y", "N", "Subtotal")),
+          match(SUSPECT_SEX, c("MALE", "FEMALE")),
+          SUSPECT_RACE_DESCRIPTION)
+
+# pivot wider
+frisksByRace2024 <- frisksByRace2024 %>%
+  mutate(cell = paste0(n, " (", scales::percent(n / sum(n), accuracy = 0.1), " of total stops)")) %>%
+  select(FRISKED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION, cell) %>%
+  pivot_wider(names_from = c(SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX), values_from = cell)
+frisksByRace2024
+
+```
+
+```{r}
+
+# calculate searches by race
+searchesByRace2024 <- sqf2024 %>%
+  group_by(SEARCHED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) %>%
+  filter(SUSPECT_SEX != "(null)", !is.na(SUSPECT_SEX)) %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "BLACK HISPANIC", "WHITE HISPANIC", "WHITE")) %>%
+  count() %>%
+  ungroup() %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# create subtotals by race
+subtotals <- searchesByRace2024 %>%
+  group_by(SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) %>%
+  summarise(n = sum(n), .groups = "drop") %>%
+  mutate(SEARCHED_FLAG = "Subtotal")
+
+# combine racial subtotals with original frisks table 
+searchesByRace2024 <- bind_rows(searchesByRace2024, subtotals) %>%
+  arrange(match(SEARCHED_FLAG, c("Y", "N", "Subtotal")),
+          match(SUSPECT_SEX, c("MALE", "FEMALE")),
+          SUSPECT_RACE_DESCRIPTION)
+
+# pivot wider
+searchesByRace2024 <- searchesByRace2024 %>%
+  mutate(cell = paste0(n, " (", scales::percent(n / sum(n), accuracy = 0.1), " of total stops)")) %>%
+  select(SEARCHED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION, cell) %>%
+  pivot_wider(names_from = c(SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX), values_from = cell)
+searchesByRace2024
+
+```
+
+```{r}
+
+frisksByRace2024
+searchesByRace2024
+
+```
+
+```{r}
+
+library(tidytext)
+library(textdata)
+
+# unnest demeanor description, such that the sentiment analysis can work
+# https://juliasilge.github.io/tidytext/reference/unnest_tokens.html
+# need to figure out a way to make sure the token that's selected isn't erroneous (i.e. "officer", "and", "to", etc.)
+stopDemeanorDesc2024 <- sqf2024 %>%
+  select(STOP_ID, SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX, DEMEANOR_OF_PERSON_STOPPED, FRISKED_FLAG, SEARCHED_FLAG) %>%
+  unnest_tokens(DEMEANOR, DEMEANOR_OF_PERSON_STOPPED, token = "words")
+
+# get sentiments from AFINN datasets
+# The AFINN lexicon assigns words with a score that runs between -5 and 5, with negative scores indicating negative sentiment and positive scores indicating positive sentiment.
+afinnSentiment <- get_sentiments("afinn")
+
+
+stopDemeanorSentiment <- stopDemeanorDesc2024 %>%
+  full_join(get_sentiments("afinn"), join_by(DEMEANOR == word)) %>%
+  count(value) 
+
+%>%
+  pivot_wider(names_from = value, values_from = n, values_fill = 0)
+
+```
+
 
