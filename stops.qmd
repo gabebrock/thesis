@@ -23,14 +23,14 @@ library(mapview)
 library(sf)
 
 # load 2024 sqf data
-sqf2024 <- read_excel("r-data/nypd-stop/sqf-2024.xlsx")
+sqf2024 <- read_excel("r-data/nypd-stop/sqf-2024.xlsx", na = "(null)")
 
 # tidy fields
 sqf2024 <- sqf2024 %>%
   mutate(STOP_FRISK_DATE = as.Date(STOP_FRISK_DATE, origin = "1900-01-01"),
          STOP_LOCATION_X = as.numeric(STOP_LOCATION_X),
          STOP_LOCATION_Y = as.numeric(STOP_LOCATION_Y)) %>%
-  filter(SUSPECT_RACE_DESCRIPTION != "(null)", !is.na(SUSPECT_RACE_DESCRIPTION))
+  filter(!is.na(SUSPECT_RACE_DESCRIPTION))
 
 ```
 
@@ -243,7 +243,7 @@ print(blackStopHeatMap)
 # calculate frisks by race
 frisksByRace2024 <- sqf2024 %>%
   group_by(FRISKED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) %>%
-  filter(SUSPECT_SEX != "(null)", !is.na(SUSPECT_SEX)) %>%
+  drop_na(SUSPECT_SEX) %>%
   filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "BLACK HISPANIC", "WHITE HISPANIC", "WHITE")) %>%
   count() %>%
   ungroup() %>%
@@ -275,7 +275,7 @@ frisksByRace2024
 # calculate searches by race
 searchesByRace2024 <- sqf2024 %>%
   group_by(SEARCHED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) %>%
-  filter(SUSPECT_SEX != "(null)", !is.na(SUSPECT_SEX)) %>%
+  drop_na(SUSPECT_SEX) %>%
   filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "BLACK HISPANIC", "WHITE HISPANIC", "WHITE")) %>%
   count() %>%
   ungroup() %>%
@@ -323,7 +323,7 @@ stopDemeanorSentiment <- stopDemeanorDesc2024 %>%
 
 ```
 
-```{r}
+```{r custom glimpse}
 
 custom_glimpse <- function(df) {
   data.frame(
@@ -337,4 +337,51 @@ custom_glimpse <- function(df) {
 SQFvariables <- custom_glimpse(sqf2024)
 
 ```
+
+```{r use of force}
+
+# group all of the types of forces together
+weaponForces <- c("PHYSICAL_FORCE_CEW_FLAG", "PHYSICAL_FORCE_DRAW_POINT_FIREARM_FLAG", "PHYSICAL_FORCE_OC_SPRAY_USED_FLAG", "PHYSICAL_FORCE_WEAPON_IMPACT_FLAG")
+
+# handcuffForce <- c()
+
+# otherForce <- c()
+
+forces <- c("PHYSICAL_FORCE_CEW_FLAG", "PHYSICAL_FORCE_DRAW_POINT_FIREARM_FLAG", "PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG", "PHYSICAL_FORCE_OC_SPRAY_USED_FLAG", "PHYSICAL_FORCE_OTHER_FLAG", "PHYSICAL_FORCE_RESTRAINT_USED_FLAG", "PHYSICAL_FORCE_VERBAL_INSTRUCTION_FLAG", "PHYSICAL_FORCE_WEAPON_IMPACT_FLAG")
+
+# create a new variable FORCE_FLAG if at least one FORCE variable is not (NULL)
+forceByRace2024 <- sqf2024 %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "BLACK HISPANIC", "WHITE HISPANIC", "WHITE")) %>%
+  mutate(FORCE_FLAG = if_any(all_of(forces), ~ !is.na(.) & . != "(null)"),
+         FORCE_WEAPON_FLAG = if_any(all_of(weaponForces), ~ !is.na(.) & . != "(null)"),
+         PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG = recode(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG,
+                                                       "Y" = TRUE,
+                                                       "N" = FALSE,
+                                                       .default = NA),
+         PHYSICAL_FORCE_OTHER_FLAG = recode(PHYSICAL_FORCE_OTHER_FLAG,
+                                                       "Y" = TRUE,
+                                                       "N" = FALSE,
+                                                       .default = NA)
+         )
+
+# calculate counts and proportions of use of force
+forceByRaceTotals2024 <- forceByRace2024 %>%
+  group_by(SUSPECT_RACE_DESCRIPTION, FORCE_FLAG, FORCE_WEAPON_FLAG, PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG, PHYSICAL_FORCE_OTHER_FLAG) %>%
+  count() %>%
+  ungroup() %>%
+  mutate(prop = round(n / sum(n), 3),
+         cell = paste0(n, " (", prop, ")"))
+
+forceByRaceTable2024 <- forceByRaceTotals2024 %>%
+  select(FORCE_FLAG, FORCE_WEAPON_FLAG, PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG,
+         PHYSICAL_FORCE_OTHER_FLAG, SUSPECT_RACE_DESCRIPTION, cell) %>%
+  pivot_wider(
+    names_from = SUSPECT_RACE_DESCRIPTION,
+    values_from = cell,
+    id_cols = c(FORCE_FLAG, FORCE_WEAPON_FLAG, PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG, PHYSICAL_FORCE_OTHER_FLAG)
+  )
+
+
+```
+
 
