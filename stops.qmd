@@ -23,6 +23,7 @@ library(mapview)
 library(sf)
 
 # load 2024 sqf data
+# treating (null) values as NA values, for simplicity in the analysis. note that where NA appears in the data, it is because the officer there was no data for that fields not that, it was not applicable to the situation.
 sqf2024 <- read_excel("r-data/nypd-stop/sqf-2024.xlsx", na = "(null)")
 
 # tidy fields
