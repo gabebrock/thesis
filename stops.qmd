@@ -401,3 +401,95 @@ pctHispanic = nypdCensus2020Races %>%
 
 ```
 
+```{r encounter-level variables}
+
+sqf2024summary <- sqf2024 %>%
+  summarize(
+    # count/percent male
+    count_male = sum(SUSPECT_SEX == "MALE", na.rm = TRUE),
+    percent_male = round(mean(SUSPECT_SEX == "MALE", na.rm = TRUE), 3),
+    
+    # count/percent male
+    count_black = sum(SUSPECT_RACE_DESCRIPTION == "BLACK", na.rm = TRUE),
+    percent_black = round(mean(SUSPECT_RACE_DESCRIPTION == "BLACK", na.rm = TRUE), 3),
+    
+    # count/percent hispanic
+    count_hispanic = sum(SUSPECT_RACE_DESCRIPTION %in% c("BLACK HISPANIC", "WHITE HISPANIC"), na.rm = TRUE),
+    percent_hispanic = round(mean(SUSPECT_RACE_DESCRIPTION %in% c("BLACK HISPANIC", "WHITE HISPANIC"), na.rm = TRUE), 3),
+
+    # avg age
+    avg_age = round(mean(SUSPECT_REPORTED_AGE, na.rm = TRUE), 1),
+
+    # avg weight
+    avg_weight = round(mean(SUSPECT_WEIGHT, na.rm = TRUE), 1),
+
+    # avg height
+#    avg_height = round(mean(SUSPECT_HEIGHT, na.rm = TRUE), 1),
+
+    # count/percent multiple people stopped
+    count_multi = sum(OTHER_PERSON_STOPPED_FLAG == "Y", na.rm = TRUE),
+    percent_multi = round(mean(OTHER_PERSON_STOPPED_FLAG == "Y", na.rm = TRUE), 3),
+
+    # count/percent suspect arrested
+    count_arrested = sum(SUSPECT_ARRESTED_FLAG == "Y", na.rm = TRUE),
+    percent_arrested = round(mean(SUSPECT_ARRESTED_FLAG == "Y", na.rm = TRUE), 3),
+    
+    # count/percent casing victim/location
+    count_casing = sum(SUSPECTS_ACTIONS_CASING_FLAG == "Y", na.rm = TRUE),
+    percent_casing = round(mean(SUSPECTS_ACTIONS_CASING_FLAG == "Y", na.rm = TRUE), 3),
+    
+    # count/percent carried weapon
+    count_weapon = sum(BACKROUND_CIRCUMSTANCES_SUSPECT_KNOWN_TO_CARRY_WEAPON_FLAG == "Y", na.rm = TRUE),
+    percent_weapon = round(mean(BACKROUND_CIRCUMSTANCES_SUSPECT_KNOWN_TO_CARRY_WEAPON_FLAG == "Y", na.rm = TRUE), 3),
+    
+    # count/percent concealed weapon
+    count_concealed = sum(SUSPECTS_ACTIONS_CONCEALED_POSSESSION_WEAPON_FLAG == "Y", na.rm = TRUE),
+    percent_concealed = round(mean(SUSPECTS_ACTIONS_CONCEALED_POSSESSION_WEAPON_FLAG == "Y", na.rm = TRUE), 3),
+    
+    # count/percent drug transaction
+    count_drug = sum(SUSPECTS_ACTIONS_DRUG_TRANSACTIONS_FLAG == "Y", na.rm = TRUE),
+    percent_drug = round(mean(SUSPECTS_ACTIONS_DRUG_TRANSACTIONS_FLAG == "Y", na.rm = TRUE), 3),
+    
+    # count/percent criminal conduct
+    count_criminal = sum(SUSPECTS_ACTIONS_IDENTIFY_CRIME_PATTERN_FLAG == "Y", na.rm = TRUE),
+    percent_criminal = round(mean(SUSPECTS_ACTIONS_IDENTIFY_CRIME_PATTERN_FLAG == "Y", na.rm = TRUE), 3),
+    
+    # count/percent lookout
+    count_lookout = sum(SUSPECTS_ACTIONS_LOOKOUT_FLAG == "Y", na.rm = TRUE),
+    percent_lookout = round(mean(SUSPECTS_ACTIONS_LOOKOUT_FLAG == "Y", na.rm = TRUE), 3),
+    
+    # count/percent near crime 
+    count_nearCrime = sum(SUSPECTS_ACTIONS_PROXIMITY_TO_SCENE_FLAG == "Y", na.rm = TRUE),
+    percent_nearCrime = round(mean(SUSPECTS_ACTIONS_PROXIMITY_TO_SCENE_FLAG == "Y", na.rm = TRUE), 3),
+    
+    # stop initiation
+    
+        # count/percent officer initiation
+        count_officerInitiated = sum(STOP_WAS_INITIATED == "Based on Self Initiated", na.rm = TRUE),
+        percent_officerInitiated = round(mean(STOP_WAS_INITIATED == "Based on Self Initiated", na.rm = TRUE), 3),
+        
+        # count/percent dispatch initiation
+        count_dispatchInitiated = sum(STOP_WAS_INITIATED == "Based on Radio Run", na.rm = TRUE),
+        percent_dispatchInitiated = round(mean(STOP_WAS_INITIATED == "Based on Radio Run", na.rm = TRUE), 3), 
+    
+        # count/percent c/w on scene
+        count_cwInitiated = sum(STOP_WAS_INITIATED == "Based on C/W on Scene", na.rm = TRUE),
+        percent_cwInitiated = round(mean(STOP_WAS_INITIATED == "Based on C/W on Scene", na.rm = TRUE), 3),
+  ) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = c("type", "metric"),
+    names_sep = "_",
+    values_to = "value"
+  ) %>%
+  pivot_wider(
+    names_from = type,
+    values_from = value
+  )
+
+
+
+```
+
+
+
