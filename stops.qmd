@@ -6,7 +6,7 @@ output: html_document
 ```{r prepping doc and data}
 
 # list of required packages
-required_packages <- c("tidyverse", "readxl", "mapview", "sf", "tinytext", "textdata")
+required_packages <- c("tidyverse", "readxl", "mapview", "sf", "tinytext", "textdata", "kableExtra")
 
 # check and install any missing packages
 installed_packages <- rownames(installed.packages())
@@ -21,6 +21,7 @@ library(tidyverse)
 library(readxl)
 library(mapview)
 library(sf)
+library(kableExtra)
 
 # load 2024 sqf data
 # treating (null) values as NA values, for simplicity in the analysis. note that where NA appears in the data, it is because the officer there was no data for that fields not that, it was not applicable to the situation.
@@ -344,7 +345,15 @@ SQFvariables <- custom_glimpse(sqf2024)
 # group all of the types of forces together
 weaponForces <- c("PHYSICAL_FORCE_CEW_FLAG", "PHYSICAL_FORCE_DRAW_POINT_FIREARM_FLAG", "PHYSICAL_FORCE_OC_SPRAY_USED_FLAG", "PHYSICAL_FORCE_WEAPON_IMPACT_FLAG")
 
-# handcuffForce <- c()
+handcuffForce <- sqf2024 %>%
+  mutate(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG = recode(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG,
+                                                       "Y" = TRUE,
+                                                       "N" = FALSE,
+                                                       .default = NA)) %>%
+  summarize(
+    count_handcuffForce = sum(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG == TRUE, na.rm = TRUE),
+    percent_handcuffForce = round(mean(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG == TRUE, na.rm = TRUE), 3)
+  )
 
 # otherForce <- c()
 
@@ -355,10 +364,6 @@ forceByRace2024 <- sqf2024 %>%
   filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "BLACK HISPANIC", "WHITE HISPANIC", "WHITE")) %>%
   mutate(FORCE_FLAG = if_any(all_of(forces), ~ !is.na(.) & . != "(null)"),
          FORCE_WEAPON_FLAG = if_any(all_of(weaponForces), ~ !is.na(.) & . != "(null)"),
-         PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG = recode(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG,
-                                                       "Y" = TRUE,
-                                                       "N" = FALSE,
-                                                       .default = NA),
          PHYSICAL_FORCE_OTHER_FLAG = recode(PHYSICAL_FORCE_OTHER_FLAG,
                                                        "Y" = TRUE,
                                                        "N" = FALSE,
@@ -382,22 +387,6 @@ forceByRaceTable2024 <- forceByRaceTotals2024 %>%
     id_cols = c(FORCE_FLAG, FORCE_WEAPON_FLAG, PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG, PHYSICAL_FORCE_OTHER_FLAG)
   )
 
-
-```
-
-```{r precinct-level variables}
-
-# average population of each precinct
-avgPop = nypdCensus2020Races %>%
-  summarize(avg = round(mean(P1_001N), 0))
-
-# average percent black of each precinct
-pctBlack = nypdCensus2020Races %>%
-  summarize(avg = round(mean(P1_004N/P1_001N), 4))
-
-# average percent hispanic of each precinct
-pctHispanic = nypdCensus2020Races %>%
-  summarize(avg = round(mean(P2_002N/P1_001N), 4))
 
 ```
 
@@ -487,9 +476,26 @@ sqf2024summary <- sqf2024 %>%
     values_from = value
   )
 
+sqf2024summary %>%
+kbl(caption = "Descriptive Statistics, Stop-and-Frisk 2024 (N = 24,395") %>%
+  kable_classic("striped", full_width = F, html_font = "Cambria")
 
 
 ```
 
+```{r precinct-level variables}
 
+# average population of each precinct
+avgPop = nypdCensus2020Races %>%
+  summarize(avg = round(mean(P1_001N), 0))
+
+# average percent black of each precinct
+pctBlack = nypdCensus2020Races %>%
+  summarize(avg = round(mean(P1_004N/P1_001N), 4))
+
+# average percent hispanic of each precinct
+pctHispanic = nypdCensus2020Races %>%
+  summarize(avg = round(mean(P2_002N/P1_001N), 4))
+
+```
 
