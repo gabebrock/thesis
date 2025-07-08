@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.6.42">
+<meta name="generator" content="quarto-1.3.450">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -22,7 +22,7 @@ ul.task-list li input[type="checkbox"] {
 }
 /* CSS for syntax highlighting */
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -33,7 +33,7 @@ div.sourceCode { overflow: auto; }
 }
 @media print {
 pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
   { counter-reset: source-line 0; }
@@ -63,10 +63,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="stops_files/libs/quarto-html/tippy.umd.min.js"></script>
 <script src="stops_files/libs/quarto-html/anchor.min.js"></script>
 <link href="stops_files/libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="stops_files/libs/quarto-html/quarto-syntax-highlighting-2f5df379a58b258e96c21c0638c20c03.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="stops_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="stops_files/libs/bootstrap/bootstrap.min.js"></script>
 <link href="stops_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="stops_files/libs/bootstrap/bootstrap-1bc8a17f135ab3d594c857e9f48e611b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="stops_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+<script src="stops_files/libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="stops_files/libs/lightable-0.0.1/lightable.css" rel="stylesheet">
 
 
 </head>
@@ -92,24 +95,31 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </div>
   
 
-
 </header>
 
-
 <div class="cell">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># list of required packages</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>required_packages <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"tidyverse"</span>, <span class="st">"readxl"</span>, <span class="st">"mapview"</span>, <span class="st">"sf"</span>)</span>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># set up a cran mirror to handle package installation</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">repos =</span> <span class="fu">c</span>(<span class="at">CRAN =</span> <span class="st">"https://cloud.r-project.org"</span>))</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># check and install any missing packages</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>installed_packages <span class="ot">&lt;-</span> <span class="fu">rownames</span>(<span class="fu">installed.packages</span>())</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (pkg <span class="cf">in</span> required_packages) {</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span>pkg <span class="sc">%in%</span> installed_packages) {</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">install.packages</span>(pkg)</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co"># load libraries</span></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># list of required packages</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>required_packages <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"tidyverse"</span>, <span class="st">"readxl"</span>, <span class="st">"mapview"</span>, <span class="st">"sf"</span>, <span class="st">"tinytext"</span>, <span class="st">"textdata"</span>, <span class="st">"kableExtra"</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># check and install any missing packages</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>installed_packages <span class="ot">&lt;-</span> <span class="fu">rownames</span>(<span class="fu">installed.packages</span>())</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (pkg <span class="cf">in</span> required_packages) {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span>pkg <span class="sc">%in%</span> installed_packages) {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">install.packages</span>(pkg)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: package 'tinytext' is not available for this version of R
+
+A version of this package for your version of R might be available elsewhere,
+see the ideas at
+https://cran.r-project.org/doc/manuals/r-patched/R-admin.html#Installing-packages</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># load libraries</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
 ✔ dplyr     1.1.4     ✔ readr     2.1.5
@@ -122,168 +132,256 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 ✖ dplyr::lag()    masks stats::lag()
 ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(readxl)</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(mapview)</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sf)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(readxl)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(mapview)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sf)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Linking to GEOS 3.13.1, GDAL 3.11.0, PROJ 9.6.0; sf_use_s2() is TRUE</code></pre>
+<pre><code>Linking to GEOS 3.13.0, GDAL 3.8.5, PROJ 9.5.1; sf_use_s2() is TRUE</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># load 2024 sqf data</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>sqf2024 <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="st">"r-data/nypd-stop/sqf-2024.xlsx"</span>)</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co"># tidy fields</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>sqf2024 <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">STOP_FRISK_DATE =</span> <span class="fu">as.Date</span>(STOP_FRISK_DATE, <span class="at">origin =</span> <span class="st">"1900-01-01"</span>),</span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>         <span class="at">STOP_LOCATION_X =</span> <span class="fu">as.numeric</span>(STOP_LOCATION_X),</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>         <span class="at">STOP_LOCATION_Y =</span> <span class="fu">as.numeric</span>(STOP_LOCATION_Y))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(kableExtra)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Warning: There were 2 warnings in `mutate()`.
-The first warning was:
-ℹ In argument: `STOP_LOCATION_X = as.numeric(STOP_LOCATION_X)`.
-Caused by warning:
-! NAs introduced by coercion
-ℹ Run `dplyr::last_dplyr_warnings()` to see the 1 remaining warning.</code></pre>
+<pre><code>
+Attaching package: 'kableExtra'
+
+The following object is masked from 'package:dplyr':
+
+    group_rows</code></pre>
 </div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># load 2024 sqf data</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co"># treating (null) values as NA values, for simplicity in the analysis. note that where NA appears in the data, it is because the officer there was no data for that fields not that, it was not applicable to the situation.</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>sqf2024 <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="st">"r-data/nypd-stop/sqf-2024.xlsx"</span>, <span class="at">na =</span> <span class="st">"(null)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AT1669 / R1669C46: got 'Y'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA2017 / R2017C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA2691 / R2691C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA2693 / R2693C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA2821 / R2821C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AT2900 / R2900C46: got 'Y'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AT9277 / R9277C46: got 'Y'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AT10105 / R10105C46: got 'Y'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA10665 / R10665C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA11542 / R11542C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA12115 / R12115C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA12170 / R12170C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA12290 / R12290C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA12303 / R12303C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AT12488 / R12488C46: got 'Y'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AT13688 / R13688C46: got 'Y'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA13943 / R13943C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA14108 / R14108C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AT14748 / R14748C46: got 'Y'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA14832 / R14832C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA15643 / R15643C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA16713 / R16713C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AT17092 / R17092C46: got 'Y'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AT17980 / R17980C46: got 'Y'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AT19622 / R19622C46: got 'Y'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA19833 / R19833C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA19834 / R19834C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA19836 / R19836C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA20273 / R20273C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA21216 / R21216C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA21217 / R21217C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA21218 / R21218C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA21219 / R21219C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA21396 / R21396C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AA23885 / R23885C27: got 'I'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AP24532 / R24532C42: got 'Y'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expecting logical in AT24730 / R24730C46: got 'Y'</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="co"># tidy fields</span></span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>sqf2024 <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span></span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">STOP_FRISK_DATE =</span> <span class="fu">as.Date</span>(STOP_FRISK_DATE, <span class="at">origin =</span> <span class="st">"1900-01-01"</span>),</span>
+<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">STOP_LOCATION_X =</span> <span class="fu">as.numeric</span>(STOP_LOCATION_X),</span>
+<span id="cb47-5"><a href="#cb47-5" aria-hidden="true" tabindex="-1"></a>         <span class="at">STOP_LOCATION_Y =</span> <span class="fu">as.numeric</span>(STOP_LOCATION_Y)) <span class="sc">%&gt;%</span></span>
+<span id="cb47-6"><a href="#cb47-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(SUSPECT_RACE_DESCRIPTION))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># stop breakdown, by race and arrest rate</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>stopsByRace <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span> </span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(SUSPECT_RACE_DESCRIPTION) <span class="sc">%&gt;%</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co"># racial proportion of overall stops</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>stopsByRace <span class="ot">&lt;-</span> stopsByRace <span class="sc">%&gt;%</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">prop =</span> <span class="fu">round</span>(n <span class="sc">/</span> <span class="fu">sum</span>(n), <span class="dv">2</span>))</span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co"># stops by race, including stops that resulted in an arrest</span></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>stopsByRaceArrests <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span> </span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(SUSPECT_RACE_DESCRIPTION, SUSPECT_ARRESTED_FLAG) <span class="sc">%&gt;%</span></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>(SUSPECT_RACE_DESCRIPTION)</span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="co"># proportion of overall stops that result in arrest, by race</span></span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>stopsByRaceArrests <span class="ot">&lt;-</span> stopsByRaceArrests <span class="sc">%&gt;%</span></span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">prop =</span> <span class="fu">round</span>(n <span class="sc">/</span> <span class="fu">sum</span>(n), <span class="dv">2</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="co"># stop breakdown, by race and arrest rate</span></span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>stopsByRace <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span> </span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(SUSPECT_RACE_DESCRIPTION) <span class="sc">%&gt;%</span></span>
+<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb48-5"><a href="#cb48-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
+<span id="cb48-6"><a href="#cb48-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb48-7"><a href="#cb48-7" aria-hidden="true" tabindex="-1"></a><span class="co"># racial proportion of overall stops</span></span>
+<span id="cb48-8"><a href="#cb48-8" aria-hidden="true" tabindex="-1"></a>stopsByRace <span class="ot">&lt;-</span> stopsByRace <span class="sc">%&gt;%</span></span>
+<span id="cb48-9"><a href="#cb48-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">prop =</span> <span class="fu">round</span>(n <span class="sc">/</span> <span class="fu">sum</span>(n), <span class="dv">2</span>))</span>
+<span id="cb48-10"><a href="#cb48-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb48-11"><a href="#cb48-11" aria-hidden="true" tabindex="-1"></a><span class="co"># stops by race, including stops that resulted in an arrest</span></span>
+<span id="cb48-12"><a href="#cb48-12" aria-hidden="true" tabindex="-1"></a>stopsByRaceArrests <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span> </span>
+<span id="cb48-13"><a href="#cb48-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(SUSPECT_RACE_DESCRIPTION, SUSPECT_ARRESTED_FLAG) <span class="sc">%&gt;%</span></span>
+<span id="cb48-14"><a href="#cb48-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb48-15"><a href="#cb48-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>(SUSPECT_RACE_DESCRIPTION)</span>
+<span id="cb48-16"><a href="#cb48-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb48-17"><a href="#cb48-17" aria-hidden="true" tabindex="-1"></a><span class="co"># proportion of overall stops that result in arrest, by race</span></span>
+<span id="cb48-18"><a href="#cb48-18" aria-hidden="true" tabindex="-1"></a>stopsByRaceArrests <span class="ot">&lt;-</span> stopsByRaceArrests <span class="sc">%&gt;%</span></span>
+<span id="cb48-19"><a href="#cb48-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">prop =</span> <span class="fu">round</span>(n <span class="sc">/</span> <span class="fu">sum</span>(n), <span class="dv">2</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># stop breakdown, by race and boro</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>stopsByBoro <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span> </span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(SUSPECT_RACE_DESCRIPTION, STOP_LOCATION_BORO_NAME) <span class="sc">%&gt;%</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>(STOP_LOCATION_BORO_NAME)</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co"># proportion of overall stops in each boro, by race</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>stopsByBoro <span class="ot">&lt;-</span> stopsByBoro <span class="sc">%&gt;%</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">prop =</span> <span class="fu">round</span>(n <span class="sc">/</span> <span class="fu">sum</span>(n), <span class="dv">2</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="co"># stop breakdown, by race and boro</span></span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>stopsByBoro <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span> </span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(SUSPECT_RACE_DESCRIPTION, STOP_LOCATION_BORO_NAME) <span class="sc">%&gt;%</span></span>
+<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>(STOP_LOCATION_BORO_NAME)</span>
+<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a><span class="co"># proportion of overall stops in each boro, by race</span></span>
+<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a>stopsByBoro <span class="ot">&lt;-</span> stopsByBoro <span class="sc">%&gt;%</span></span>
+<span id="cb49-9"><a href="#cb49-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">prop =</span> <span class="fu">round</span>(n <span class="sc">/</span> <span class="fu">sum</span>(n), <span class="dv">2</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># grab boro boundaries geoJSON file from NYC Planning website</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Borough Boundaries (Clipped to Shoreline)</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Date of Data: May 2025</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># https://www.nyc.gov/content/planning/pages/resources/datasets/borough-boundaries</span></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="co"># initialize geospatial data available at the geojson format</span></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>nyc_geojson <span class="ot">&lt;-</span> <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">".pgeojson"</span>)</span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="co"># download boro boundaries json file</span></span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a><span class="fu">download.file</span>(</span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  <span class="st">"https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Borough_Boundary/FeatureServer/0/query?where=1=1&amp;outFields=*&amp;outSR=4326&amp;f=pgeojson"</span>,</span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>  nyc_geojson)</span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="co"># read the nyc json file to a shapefile</span></span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>nyc_sf <span class="ot">&lt;-</span> <span class="fu">read_sf</span>(nyc_geojson)</span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a><span class="co"># plot the NYC map</span></span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>nycMAP <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(nyc_sf) <span class="sc">+</span></span>
-<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">fill =</span> <span class="st">"white"</span>, <span class="at">color =</span> <span class="st">"black"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="co"># grab boro boundaries geoJSON file from NYC Planning website</span></span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Borough Boundaries (Clipped to Shoreline)</span></span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Date of Data: May 2025</span></span>
+<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># https://www.nyc.gov/content/planning/pages/resources/datasets/borough-boundaries</span></span>
+<span id="cb50-5"><a href="#cb50-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-6"><a href="#cb50-6" aria-hidden="true" tabindex="-1"></a><span class="co"># initialize geospatial data available at the geojson format</span></span>
+<span id="cb50-7"><a href="#cb50-7" aria-hidden="true" tabindex="-1"></a>nyc_geojson <span class="ot">&lt;-</span> <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">".pgeojson"</span>)</span>
+<span id="cb50-8"><a href="#cb50-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-9"><a href="#cb50-9" aria-hidden="true" tabindex="-1"></a><span class="co"># download boro boundaries json file</span></span>
+<span id="cb50-10"><a href="#cb50-10" aria-hidden="true" tabindex="-1"></a><span class="fu">download.file</span>(</span>
+<span id="cb50-11"><a href="#cb50-11" aria-hidden="true" tabindex="-1"></a>  <span class="st">"https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Borough_Boundary/FeatureServer/0/query?where=1=1&amp;outFields=*&amp;outSR=4326&amp;f=pgeojson"</span>,</span>
+<span id="cb50-12"><a href="#cb50-12" aria-hidden="true" tabindex="-1"></a>  nyc_geojson)</span>
+<span id="cb50-13"><a href="#cb50-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-14"><a href="#cb50-14" aria-hidden="true" tabindex="-1"></a><span class="co"># read the nyc json file to a shapefile</span></span>
+<span id="cb50-15"><a href="#cb50-15" aria-hidden="true" tabindex="-1"></a>nyc_sf <span class="ot">&lt;-</span> <span class="fu">read_sf</span>(nyc_geojson)</span>
+<span id="cb50-16"><a href="#cb50-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-17"><a href="#cb50-17" aria-hidden="true" tabindex="-1"></a><span class="co"># plot the NYC map</span></span>
+<span id="cb50-18"><a href="#cb50-18" aria-hidden="true" tabindex="-1"></a>nycMAP <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(nyc_sf) <span class="sc">+</span></span>
+<span id="cb50-19"><a href="#cb50-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">fill =</span> <span class="st">"white"</span>, <span class="at">color =</span> <span class="st">"black"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb50-20"><a href="#cb50-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># convert coordinates from sqf data to sf object</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>stops2024_sf <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">drop_na</span>(STOP_LOCATION_X, STOP_LOCATION_Y) <span class="sc">%&gt;%</span></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">st_as_sf</span>(<span class="at">coords =</span> <span class="fu">c</span>(<span class="st">"STOP_LOCATION_X"</span>, <span class="st">"STOP_LOCATION_Y"</span>), <span class="at">crs =</span> <span class="dv">2263</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">st_transform</span>(<span class="at">crs =</span> <span class="dv">4326</span>)</span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="co"># dot stop map</span></span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>nycMAP <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(nyc_sf) <span class="sc">+</span></span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">fill =</span> <span class="st">"white"</span>, <span class="at">color =</span> <span class="st">"black"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(</span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> stops2024_sf,</span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">aes</span>(<span class="at">geometry =</span> geometry, <span class="at">color =</span> SUSPECT_RACE_DESCRIPTION),</span>
-<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">size =</span> <span class="fl">0.25</span>,</span>
-<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">alpha =</span> <span class="fl">0.4</span>) <span class="sc">+</span>         </span>
-<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_sf</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">74.3</span>, <span class="sc">-</span><span class="fl">73.65</span>), <span class="at">ylim =</span> <span class="fu">c</span>(<span class="fl">40.48</span>, <span class="fl">40.95</span>)) <span class="sc">+</span></span>
-<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>() <span class="sc">+</span></span>
-<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_viridis_d</span>(<span class="at">option =</span> <span class="st">"B"</span>) <span class="sc">+</span></span>
-<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">color =</span> <span class="st">"Suspect Race or Ethnicity"</span>) <span class="sc">+</span></span>
-<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
-<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.key =</span> <span class="fu">element_rect</span>(<span class="at">fill =</span> <span class="cn">NA</span>, <span class="at">color =</span> <span class="cn">NA</span>),         <span class="co"># remove default key background</span></span>
-<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.key.size =</span> <span class="fu">unit</span>(<span class="fl">0.5</span>, <span class="st">"cm"</span>),                         <span class="co"># shrink key size</span></span>
-<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.text =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">7</span>),                      <span class="co"># smaller labels</span></span>
-<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">8</span>),                     <span class="co"># smaller title</span></span>
-<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.spacing.y =</span> <span class="fu">unit</span>(<span class="fl">0.2</span>, <span class="st">"cm"</span>),                        <span class="co"># tighter vertical spacing</span></span>
-<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.box.spacing =</span> <span class="fu">unit</span>(<span class="fl">0.3</span>, <span class="st">"cm"</span>)                       <span class="co"># spacing around the legend box</span></span>
-<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">override.aes =</span> <span class="fu">list</span>(<span class="at">shape =</span> <span class="dv">15</span>, <span class="at">size =</span> <span class="dv">4</span>)))  <span class="co"># squares</span></span>
-<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(nycMAP)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="co"># convert coordinates from sqf data to sf object</span></span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>stops2024_sf <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span></span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">drop_na</span>(STOP_LOCATION_X, STOP_LOCATION_Y) <span class="sc">%&gt;%</span></span>
+<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">st_as_sf</span>(<span class="at">coords =</span> <span class="fu">c</span>(<span class="st">"STOP_LOCATION_X"</span>, <span class="st">"STOP_LOCATION_Y"</span>), <span class="at">crs =</span> <span class="dv">2263</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">st_transform</span>(<span class="at">crs =</span> <span class="dv">4326</span>)</span>
+<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb51-7"><a href="#cb51-7" aria-hidden="true" tabindex="-1"></a><span class="co"># dot stop map</span></span>
+<span id="cb51-8"><a href="#cb51-8" aria-hidden="true" tabindex="-1"></a>nycMAP <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(nyc_sf) <span class="sc">+</span></span>
+<span id="cb51-9"><a href="#cb51-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">fill =</span> <span class="st">"white"</span>, <span class="at">color =</span> <span class="st">"black"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb51-10"><a href="#cb51-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(</span>
+<span id="cb51-11"><a href="#cb51-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> stops2024_sf,</span>
+<span id="cb51-12"><a href="#cb51-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">aes</span>(<span class="at">geometry =</span> geometry, <span class="at">color =</span> SUSPECT_RACE_DESCRIPTION),</span>
+<span id="cb51-13"><a href="#cb51-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">size =</span> <span class="fl">0.25</span>,</span>
+<span id="cb51-14"><a href="#cb51-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">alpha =</span> <span class="fl">0.4</span>) <span class="sc">+</span>         </span>
+<span id="cb51-15"><a href="#cb51-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_sf</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">74.3</span>, <span class="sc">-</span><span class="fl">73.65</span>), <span class="at">ylim =</span> <span class="fu">c</span>(<span class="fl">40.48</span>, <span class="fl">40.95</span>)) <span class="sc">+</span></span>
+<span id="cb51-16"><a href="#cb51-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>() <span class="sc">+</span></span>
+<span id="cb51-17"><a href="#cb51-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_viridis_d</span>(<span class="at">option =</span> <span class="st">"B"</span>) <span class="sc">+</span></span>
+<span id="cb51-18"><a href="#cb51-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">color =</span> <span class="st">"Suspect Race or Ethnicity"</span>) <span class="sc">+</span></span>
+<span id="cb51-19"><a href="#cb51-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb51-20"><a href="#cb51-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.key =</span> <span class="fu">element_rect</span>(<span class="at">fill =</span> <span class="cn">NA</span>, <span class="at">color =</span> <span class="cn">NA</span>),         <span class="co"># remove default key background</span></span>
+<span id="cb51-21"><a href="#cb51-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.key.size =</span> <span class="fu">unit</span>(<span class="fl">0.5</span>, <span class="st">"cm"</span>),                         <span class="co"># shrink key size</span></span>
+<span id="cb51-22"><a href="#cb51-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.text =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">7</span>),                      <span class="co"># smaller labels</span></span>
+<span id="cb51-23"><a href="#cb51-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">8</span>),                     <span class="co"># smaller title</span></span>
+<span id="cb51-24"><a href="#cb51-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.spacing.y =</span> <span class="fu">unit</span>(<span class="fl">0.2</span>, <span class="st">"cm"</span>),                        <span class="co"># tighter vertical spacing</span></span>
+<span id="cb51-25"><a href="#cb51-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.box.spacing =</span> <span class="fu">unit</span>(<span class="fl">0.3</span>, <span class="st">"cm"</span>)                       <span class="co"># spacing around the legend box</span></span>
+<span id="cb51-26"><a href="#cb51-26" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb51-27"><a href="#cb51-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">override.aes =</span> <span class="fu">list</span>(<span class="at">shape =</span> <span class="dv">15</span>, <span class="at">size =</span> <span class="dv">4</span>)))  <span class="co"># squares</span></span>
+<span id="cb51-28"><a href="#cb51-28" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(nycMAP)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="stops_files/figure-html/mapping%20stops%20to%20nyc%20map-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># stop heat map</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>nycMAPheat <span class="ot">&lt;-</span> <span class="fu">ggplot</span>() <span class="sc">+</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">data =</span> nyc_sf, <span class="at">fill =</span> <span class="st">"white"</span>, <span class="at">color =</span> <span class="st">"black"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_bin_2d</span>(</span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> stops2024_sf,</span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">st_coordinates</span>(stops2024_sf)[,<span class="dv">1</span>],</span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>        <span class="at">y =</span> <span class="fu">st_coordinates</span>(stops2024_sf)[,<span class="dv">2</span>],</span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>        <span class="at">fill =</span> <span class="fu">after_stat</span>(count)),</span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">bins =</span> <span class="dv">500</span></span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_c</span>(<span class="at">option =</span> <span class="st">"plasma"</span>, <span class="at">trans =</span> <span class="st">"log"</span>) <span class="sc">+</span></span>
-<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_sf</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">74.3</span>, <span class="sc">-</span><span class="fl">73.65</span>), <span class="at">ylim =</span> <span class="fu">c</span>(<span class="fl">40.48</span>, <span class="fl">40.95</span>)) <span class="sc">+</span></span>
-<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>()</span>
-<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(nycMAPheat)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="stops_files/figure-html/mapping%20stops%20to%20nyc%20map-2.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
+<p><img src="stops_files/figure-html/mapping%20stops%20to%20nyc%20map-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># grab precinct boundaries geoJSON file from NYC Planning website</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Police Precincts (Clipped to Shoreline)</span></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Date of Data: May 2025</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># https://www.nyc.gov/content/planning/pages/resources/datasets/police-precincts</span></span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="co"># initialize geospatial data available at the geojson format</span></span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>nypd_geojson <span class="ot">&lt;-</span> <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">".pgeojson"</span>)</span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="co"># download boro boundaries json file</span></span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="fu">download.file</span>(</span>
-<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>  <span class="st">"https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Police_Precincts/FeatureServer/0/query?where=1=1&amp;outFields=*&amp;outSR=4326&amp;f=pgeojson"</span>,</span>
-<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>  nypd_geojson)</span>
-<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a><span class="co"># read the nyc json file to a shapefile</span></span>
-<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>nypd_sf <span class="ot">&lt;-</span> <span class="fu">read_sf</span>(nypd_geojson)</span>
-<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a><span class="co"># format `Precinct` to match variable name in sqf dfs</span></span>
-<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>nypd_sf<span class="sc">$</span>Precinct <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%03d"</span>, <span class="fu">as.integer</span>(nypd_sf<span class="sc">$</span>Precinct))</span>
-<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a><span class="co"># plot the NYPD map</span></span>
-<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>nypdMAP <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(nypd_sf) <span class="sc">+</span></span>
-<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">fill =</span> <span class="st">"white"</span>, <span class="at">color =</span> <span class="st">"black"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="co"># grab precinct boundaries geoJSON file from NYC Planning website</span></span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Police Precincts (Clipped to Shoreline)</span></span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Date of Data: May 2025</span></span>
+<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># https://www.nyc.gov/content/planning/pages/resources/datasets/police-precincts</span></span>
+<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a><span class="co"># initialize geospatial data available at the geojson format</span></span>
+<span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a>nypd_geojson <span class="ot">&lt;-</span> <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">".pgeojson"</span>)</span>
+<span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-9"><a href="#cb52-9" aria-hidden="true" tabindex="-1"></a><span class="co"># download boro boundaries json file</span></span>
+<span id="cb52-10"><a href="#cb52-10" aria-hidden="true" tabindex="-1"></a><span class="fu">download.file</span>(</span>
+<span id="cb52-11"><a href="#cb52-11" aria-hidden="true" tabindex="-1"></a>  <span class="st">"https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Police_Precincts/FeatureServer/0/query?where=1=1&amp;outFields=*&amp;outSR=4326&amp;f=pgeojson"</span>,</span>
+<span id="cb52-12"><a href="#cb52-12" aria-hidden="true" tabindex="-1"></a>  nypd_geojson)</span>
+<span id="cb52-13"><a href="#cb52-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-14"><a href="#cb52-14" aria-hidden="true" tabindex="-1"></a><span class="co"># read the nyc json file to a shapefile</span></span>
+<span id="cb52-15"><a href="#cb52-15" aria-hidden="true" tabindex="-1"></a>nypd_sf <span class="ot">&lt;-</span> <span class="fu">read_sf</span>(nypd_geojson)</span>
+<span id="cb52-16"><a href="#cb52-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-17"><a href="#cb52-17" aria-hidden="true" tabindex="-1"></a><span class="co"># format `Precinct` to match variable name in sqf dfs</span></span>
+<span id="cb52-18"><a href="#cb52-18" aria-hidden="true" tabindex="-1"></a>nypd_sf<span class="sc">$</span>Precinct <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%03d"</span>, <span class="fu">as.integer</span>(nypd_sf<span class="sc">$</span>Precinct))</span>
+<span id="cb52-19"><a href="#cb52-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-20"><a href="#cb52-20" aria-hidden="true" tabindex="-1"></a><span class="co"># plot the NYPD map</span></span>
+<span id="cb52-21"><a href="#cb52-21" aria-hidden="true" tabindex="-1"></a>nypdMAP <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(nypd_sf) <span class="sc">+</span></span>
+<span id="cb52-22"><a href="#cb52-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">fill =</span> <span class="st">"white"</span>, <span class="at">color =</span> <span class="st">"black"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb52-23"><a href="#cb52-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>nypdCensus2020 <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">"r-data/census/nyc_precinct_2020pop.csv"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb53"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a>nypdCensus2020 <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">"r-data/census/nyc_precinct_2020pop.csv"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Rows: 77 Columns: 145
 ── Column specification ────────────────────────────────────────────────────────
@@ -293,35 +391,470 @@ dbl (145): precinct, P1_001N, P1_002N, P1_003N, P1_004N, P1_005N, P1_006N, P...
 ℹ Use `spec()` to retrieve the full column specification for this data.
 ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># format `Precinct` to match variable name in sqf dfs</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>nypdCensus2020<span class="sc">$</span>precinct <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%03d"</span>, <span class="fu">as.integer</span>(nypdCensus2020<span class="sc">$</span>precinct))</span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="co"># census (only one race totals and total 2+ races)</span></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>nypdCensus2020Races <span class="ot">&lt;-</span> nypdCensus2020 <span class="sc">%&gt;%</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(precinct, P1_001N, P1_002N, P1_003N, P1_004N, P1_005N, P1_006N, P1_007N, P1_008N, P1_009N)</span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="co"># precincts, proportion of black residents</span></span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>nypdCensus2020Black <span class="ot">&lt;-</span> nypdCensus2020 <span class="sc">%&gt;%</span></span>
-<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(precinct, P1_001N, P1_004N) <span class="sc">%&gt;%</span></span>
-<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">prop =</span> <span class="fu">round</span>(P1_004N <span class="sc">/</span> P1_001N, <span class="dv">2</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="co"># format `Precinct` to match variable name in sqf dfs</span></span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a>nypdCensus2020<span class="sc">$</span>precinct <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%03d"</span>, <span class="fu">as.integer</span>(nypdCensus2020<span class="sc">$</span>precinct))</span>
+<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a><span class="co"># census (only one race totals and total 2+ races)</span></span>
+<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a>nypdCensus2020Races <span class="ot">&lt;-</span> nypdCensus2020 <span class="sc">%&gt;%</span></span>
+<span id="cb55-6"><a href="#cb55-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(precinct, P1_001N, P1_002N, P1_003N, P1_004N, P1_005N, P1_006N, P1_007N, P1_008N, P1_009N, P2_002N, P2_003N)</span>
+<span id="cb55-7"><a href="#cb55-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb55-8"><a href="#cb55-8" aria-hidden="true" tabindex="-1"></a><span class="co"># precincts, proportion of black residents</span></span>
+<span id="cb55-9"><a href="#cb55-9" aria-hidden="true" tabindex="-1"></a>nypdCensus2020Black <span class="ot">&lt;-</span> nypdCensus2020 <span class="sc">%&gt;%</span></span>
+<span id="cb55-10"><a href="#cb55-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(precinct, P1_001N, P1_004N) <span class="sc">%&gt;%</span></span>
+<span id="cb55-11"><a href="#cb55-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">prop =</span> <span class="fu">round</span>(P1_004N <span class="sc">/</span> P1_001N, <span class="dv">2</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># join census data to spatial precinct data</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>nypd_sf <span class="ot">&lt;-</span> nypd_sf <span class="sc">%&gt;%</span></span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(nypdCensus2020Black, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">"Precinct"</span> <span class="ot">=</span> <span class="st">"precinct"</span>))</span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="co"># plot heatmap of proportion Black, by precinct</span></span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>nypdHeatmap <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(nypd_sf) <span class="sc">+</span></span>
-<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="fu">aes</span>(<span class="at">fill =</span> prop), <span class="at">color =</span> <span class="st">"white"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_c</span>(</span>
-<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">option =</span> <span class="st">"magma"</span>,</span>
-<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">"Proportion Black"</span>,</span>
-<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">label_percent</span>(<span class="at">accuracy =</span> <span class="dv">1</span>),</span>
-<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">na.value =</span> <span class="st">"gray90"</span></span>
-<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>() <span class="sc">+</span></span>
-<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Proportion of Black NYC Residents, by NYPD Precinct"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="co"># join census data to spatial precinct data</span></span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a>nypd_sf <span class="ot">&lt;-</span> nypd_sf <span class="sc">%&gt;%</span></span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(nypdCensus2020Black, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">"Precinct"</span> <span class="ot">=</span> <span class="st">"precinct"</span>))</span>
+<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb56-5"><a href="#cb56-5" aria-hidden="true" tabindex="-1"></a><span class="co"># plot heatmap of proportion Black, by precinct</span></span>
+<span id="cb56-6"><a href="#cb56-6" aria-hidden="true" tabindex="-1"></a>blackHeatMap <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(nypd_sf) <span class="sc">+</span></span>
+<span id="cb56-7"><a href="#cb56-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="fu">aes</span>(<span class="at">fill =</span> prop), <span class="at">color =</span> <span class="st">"white"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb56-8"><a href="#cb56-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_c</span>(</span>
+<span id="cb56-9"><a href="#cb56-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">option =</span> <span class="st">"rocket"</span>,</span>
+<span id="cb56-10"><a href="#cb56-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">"Proportion of Black Residents"</span>,</span>
+<span id="cb56-11"><a href="#cb56-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">label_percent</span>(<span class="at">accuracy =</span> <span class="dv">1</span>),</span>
+<span id="cb56-12"><a href="#cb56-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">na.value =</span> <span class="st">"gray90"</span></span>
+<span id="cb56-13"><a href="#cb56-13" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb56-14"><a href="#cb56-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>() <span class="sc">+</span></span>
+<span id="cb56-15"><a href="#cb56-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Proportion of Black NYC Residents, by NYPD Precinct"</span>)</span>
+<span id="cb56-16"><a href="#cb56-16" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(blackHeatMap)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="stops_files/figure-html/heat%20map%20of%20black%20NYC%20residents,%20by%20nypd%20precinct-1.png" class="img-fluid" width="672"></p>
 </div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb57"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="co"># census (only one race totals and total 2+ races)</span></span>
+<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a>sqf2024raceTotals <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span></span>
+<span id="cb57-3"><a href="#cb57-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(STOP_ID, STOP_LOCATION_PRECINCT, SUSPECT_RACE_DESCRIPTION) <span class="sc">%&gt;%</span></span>
+<span id="cb57-4"><a href="#cb57-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(STOP_LOCATION_PRECINCT) <span class="sc">%&gt;%</span></span>
+<span id="cb57-5"><a href="#cb57-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(SUSPECT_RACE_DESCRIPTION)</span>
+<span id="cb57-6"><a href="#cb57-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb57-7"><a href="#cb57-7" aria-hidden="true" tabindex="-1"></a><span class="co"># precincts, proportion of black residents</span></span>
+<span id="cb57-8"><a href="#cb57-8" aria-hidden="true" tabindex="-1"></a>sqf2024raceTotals <span class="ot">&lt;-</span> sqf2024raceTotals <span class="sc">%&gt;%</span></span>
+<span id="cb57-9"><a href="#cb57-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">prop =</span> <span class="fu">round</span>(n <span class="sc">/</span> <span class="fu">sum</span>(n), <span class="dv">2</span>))</span>
+<span id="cb57-10"><a href="#cb57-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb57-11"><a href="#cb57-11" aria-hidden="true" tabindex="-1"></a><span class="co"># filter to only include black stops</span></span>
+<span id="cb57-12"><a href="#cb57-12" aria-hidden="true" tabindex="-1"></a>sqf2024raceBlack <span class="ot">&lt;-</span> sqf2024raceTotals <span class="sc">%&gt;%</span></span>
+<span id="cb57-13"><a href="#cb57-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(SUSPECT_RACE_DESCRIPTION <span class="sc">==</span> <span class="st">"BLACK"</span>)</span>
+<span id="cb57-14"><a href="#cb57-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb57-15"><a href="#cb57-15" aria-hidden="true" tabindex="-1"></a><span class="co"># join census data to spatial precinct data</span></span>
+<span id="cb57-16"><a href="#cb57-16" aria-hidden="true" tabindex="-1"></a>nypd_sf <span class="ot">&lt;-</span> nypd_sf <span class="sc">%&gt;%</span></span>
+<span id="cb57-17"><a href="#cb57-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">popPropBlack =</span> prop) <span class="sc">%&gt;%</span></span>
+<span id="cb57-18"><a href="#cb57-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(sqf2024raceBlack, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">"Precinct"</span> <span class="ot">=</span> <span class="st">"STOP_LOCATION_PRECINCT"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb57-19"><a href="#cb57-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">stopPropBlack =</span> prop)</span>
+<span id="cb57-20"><a href="#cb57-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb57-21"><a href="#cb57-21" aria-hidden="true" tabindex="-1"></a><span class="co"># plot heatmap of proportion Black stops, by precinct</span></span>
+<span id="cb57-22"><a href="#cb57-22" aria-hidden="true" tabindex="-1"></a>blackStopHeatMap <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(nypd_sf) <span class="sc">+</span></span>
+<span id="cb57-23"><a href="#cb57-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="fu">aes</span>(<span class="at">fill =</span> stopPropBlack), <span class="at">color =</span> <span class="st">"white"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb57-24"><a href="#cb57-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_c</span>(</span>
+<span id="cb57-25"><a href="#cb57-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">option =</span> <span class="st">"rocket"</span>,</span>
+<span id="cb57-26"><a href="#cb57-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">"Proportion Black SQFs"</span>,</span>
+<span id="cb57-27"><a href="#cb57-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">label_percent</span>(<span class="at">accuracy =</span> <span class="dv">1</span>),</span>
+<span id="cb57-28"><a href="#cb57-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">na.value =</span> <span class="st">"gray90"</span></span>
+<span id="cb57-29"><a href="#cb57-29" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb57-30"><a href="#cb57-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>() <span class="sc">+</span></span>
+<span id="cb57-31"><a href="#cb57-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Proportion of Black NYC Residents, by NYPD Precinct"</span>)</span>
+<span id="cb57-32"><a href="#cb57-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb57-33"><a href="#cb57-33" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(blackHeatMap)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="stops_files/figure-html/heat%20map%20of%20black%20stops,%20by%20nypd%20precinct-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="sourceCode cell-code" id="cb58"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(blackStopHeatMap)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="stops_files/figure-html/heat%20map%20of%20black%20stops,%20by%20nypd%20precinct-2.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<section id="illustrate-the-disparity-between-the-number-of-black-people-stopped-in-a-precinct-and-their-percentage-of-the-population" class="level1">
+<h1>illustrate the disparity between the number of Black people stopped in a precinct and their percentage of the population</h1>
+</section>
+<section id="calculate-the-disproportionality-of-stops-does-not-account-for-proportion-of-crime-will-conduct-later-analysis" class="level1">
+<h1>calculate the disproportionality of stops (does not account for proportion of crime, will conduct later analysis)</h1>
+<p><code>P_b</code> = Proportion of Black population in the precinct <code>S_b</code> = Proportion of stops involving Black people in the precinct <code>\vec{D} = S_b - P_b</code></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb59"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate frisks by race</span></span>
+<span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a>frisksByRace2024 <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span></span>
+<span id="cb59-3"><a href="#cb59-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(FRISKED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) <span class="sc">%&gt;%</span></span>
+<span id="cb59-4"><a href="#cb59-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">drop_na</span>(SUSPECT_SEX) <span class="sc">%&gt;%</span></span>
+<span id="cb59-5"><a href="#cb59-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(SUSPECT_RACE_DESCRIPTION <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"BLACK"</span>, <span class="st">"BLACK HISPANIC"</span>, <span class="st">"WHITE HISPANIC"</span>, <span class="st">"WHITE"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb59-6"><a href="#cb59-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb59-7"><a href="#cb59-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb59-8"><a href="#cb59-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">prop =</span> <span class="fu">round</span>(n <span class="sc">/</span> <span class="fu">sum</span>(n), <span class="dv">2</span>))</span>
+<span id="cb59-9"><a href="#cb59-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb59-10"><a href="#cb59-10" aria-hidden="true" tabindex="-1"></a><span class="co"># create subtotals by race</span></span>
+<span id="cb59-11"><a href="#cb59-11" aria-hidden="true" tabindex="-1"></a>subtotals <span class="ot">&lt;-</span> frisksByRace2024 <span class="sc">%&gt;%</span></span>
+<span id="cb59-12"><a href="#cb59-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) <span class="sc">%&gt;%</span></span>
+<span id="cb59-13"><a href="#cb59-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n =</span> <span class="fu">sum</span>(n), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb59-14"><a href="#cb59-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">FRISKED_FLAG =</span> <span class="st">"Subtotal"</span>)</span>
+<span id="cb59-15"><a href="#cb59-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb59-16"><a href="#cb59-16" aria-hidden="true" tabindex="-1"></a><span class="co"># combine racial subtotals with original frisks table </span></span>
+<span id="cb59-17"><a href="#cb59-17" aria-hidden="true" tabindex="-1"></a>frisksByRace2024 <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(frisksByRace2024, subtotals) <span class="sc">%&gt;%</span></span>
+<span id="cb59-18"><a href="#cb59-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">match</span>(FRISKED_FLAG, <span class="fu">c</span>(<span class="st">"Y"</span>, <span class="st">"N"</span>, <span class="st">"Subtotal"</span>)),</span>
+<span id="cb59-19"><a href="#cb59-19" aria-hidden="true" tabindex="-1"></a>          <span class="fu">match</span>(SUSPECT_SEX, <span class="fu">c</span>(<span class="st">"MALE"</span>, <span class="st">"FEMALE"</span>)),</span>
+<span id="cb59-20"><a href="#cb59-20" aria-hidden="true" tabindex="-1"></a>          SUSPECT_RACE_DESCRIPTION)</span>
+<span id="cb59-21"><a href="#cb59-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb59-22"><a href="#cb59-22" aria-hidden="true" tabindex="-1"></a><span class="co"># pivot wider</span></span>
+<span id="cb59-23"><a href="#cb59-23" aria-hidden="true" tabindex="-1"></a>frisksByRace2024 <span class="ot">&lt;-</span> frisksByRace2024 <span class="sc">%&gt;%</span></span>
+<span id="cb59-24"><a href="#cb59-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">cell =</span> <span class="fu">paste0</span>(n, <span class="st">" ("</span>, scales<span class="sc">::</span><span class="fu">percent</span>(n <span class="sc">/</span> <span class="fu">sum</span>(n), <span class="at">accuracy =</span> <span class="fl">0.1</span>), <span class="st">" of total stops)"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb59-25"><a href="#cb59-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(FRISKED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION, cell) <span class="sc">%&gt;%</span></span>
+<span id="cb59-26"><a href="#cb59-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> <span class="fu">c</span>(SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX), <span class="at">values_from =</span> cell)</span>
+<span id="cb59-27"><a href="#cb59-27" aria-hidden="true" tabindex="-1"></a>frisksByRace2024</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 3 × 9
+  FRISKED_FLAG BLACK_MALE `BLACK HISPANIC_MALE` WHITE_MALE `WHITE HISPANIC_MALE`
+  &lt;chr&gt;        &lt;chr&gt;      &lt;chr&gt;                 &lt;chr&gt;      &lt;chr&gt;                
+1 Y            9284 (19.… 1504 (3.2% of total … 435 (0.9%… 2798 (5.9% of total …
+2 N            4350 (9.2… 833 (1.8% of total s… 735 (1.6%… 1972 (4.2% of total …
+3 Subtotal     13634 (28… 2337 (5.0% of total … 1170 (2.5… 4770 (10.1% of total…
+# ℹ 4 more variables: BLACK_FEMALE &lt;chr&gt;, `BLACK HISPANIC_FEMALE` &lt;chr&gt;,
+#   WHITE_FEMALE &lt;chr&gt;, `WHITE HISPANIC_FEMALE` &lt;chr&gt;</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb61"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate searches by race</span></span>
+<span id="cb61-2"><a href="#cb61-2" aria-hidden="true" tabindex="-1"></a>searchesByRace2024 <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span></span>
+<span id="cb61-3"><a href="#cb61-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(SEARCHED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) <span class="sc">%&gt;%</span></span>
+<span id="cb61-4"><a href="#cb61-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">drop_na</span>(SUSPECT_SEX) <span class="sc">%&gt;%</span></span>
+<span id="cb61-5"><a href="#cb61-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(SUSPECT_RACE_DESCRIPTION <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"BLACK"</span>, <span class="st">"BLACK HISPANIC"</span>, <span class="st">"WHITE HISPANIC"</span>, <span class="st">"WHITE"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb61-6"><a href="#cb61-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb61-7"><a href="#cb61-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb61-8"><a href="#cb61-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">prop =</span> <span class="fu">round</span>(n <span class="sc">/</span> <span class="fu">sum</span>(n), <span class="dv">2</span>))</span>
+<span id="cb61-9"><a href="#cb61-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb61-10"><a href="#cb61-10" aria-hidden="true" tabindex="-1"></a><span class="co"># pivot wider</span></span>
+<span id="cb61-11"><a href="#cb61-11" aria-hidden="true" tabindex="-1"></a>searchesByRace2024 <span class="ot">&lt;-</span> searchesByRace2024 <span class="sc">%&gt;%</span></span>
+<span id="cb61-12"><a href="#cb61-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">match</span>(SEARCHED_FLAG, <span class="fu">c</span>(<span class="st">"Y"</span>, <span class="st">"N"</span>)),</span>
+<span id="cb61-13"><a href="#cb61-13" aria-hidden="true" tabindex="-1"></a>          <span class="fu">match</span>(SUSPECT_SEX, <span class="fu">c</span>(<span class="st">"MALE"</span>, <span class="st">"FEMALE"</span>))) <span class="sc">%&gt;%</span></span>
+<span id="cb61-14"><a href="#cb61-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">cell =</span> <span class="fu">paste0</span>(n, <span class="st">" ("</span>, scales<span class="sc">::</span><span class="fu">percent</span>(n <span class="sc">/</span> <span class="fu">sum</span>(n), <span class="at">accuracy =</span> <span class="fl">0.1</span>), <span class="st">" of total stops)"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb61-15"><a href="#cb61-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(SEARCHED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION, cell) <span class="sc">%&gt;%</span></span>
+<span id="cb61-16"><a href="#cb61-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> <span class="fu">c</span>(SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX),</span>
+<span id="cb61-17"><a href="#cb61-17" aria-hidden="true" tabindex="-1"></a>              <span class="at">values_from =</span> cell)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb62"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a>frisksByRace2024</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 3 × 9
+  FRISKED_FLAG BLACK_MALE `BLACK HISPANIC_MALE` WHITE_MALE `WHITE HISPANIC_MALE`
+  &lt;chr&gt;        &lt;chr&gt;      &lt;chr&gt;                 &lt;chr&gt;      &lt;chr&gt;                
+1 Y            9284 (19.… 1504 (3.2% of total … 435 (0.9%… 2798 (5.9% of total …
+2 N            4350 (9.2… 833 (1.8% of total s… 735 (1.6%… 1972 (4.2% of total …
+3 Subtotal     13634 (28… 2337 (5.0% of total … 1170 (2.5… 4770 (10.1% of total…
+# ℹ 4 more variables: BLACK_FEMALE &lt;chr&gt;, `BLACK HISPANIC_FEMALE` &lt;chr&gt;,
+#   WHITE_FEMALE &lt;chr&gt;, `WHITE HISPANIC_FEMALE` &lt;chr&gt;</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb64"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb64-1"><a href="#cb64-1" aria-hidden="true" tabindex="-1"></a>searchesByRace2024</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 2 × 9
+  SEARCHED_FLAG BLACK_MALE                  `BLACK HISPANIC_MALE`     WHITE_MALE
+  &lt;chr&gt;         &lt;chr&gt;                       &lt;chr&gt;                     &lt;chr&gt;     
+1 Y             5523 (23.4% of total stops) 885 (3.7% of total stops) 518 (2.2%…
+2 N             8111 (34.4% of total stops) 1452 (6.2% of total stop… 652 (2.8%…
+# ℹ 5 more variables: `WHITE HISPANIC_MALE` &lt;chr&gt;, BLACK_FEMALE &lt;chr&gt;,
+#   `BLACK HISPANIC_FEMALE` &lt;chr&gt;, WHITE_FEMALE &lt;chr&gt;,
+#   `WHITE HISPANIC_FEMALE` &lt;chr&gt;</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb66"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidytext)</span>
+<span id="cb66-2"><a href="#cb66-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(textdata)</span>
+<span id="cb66-3"><a href="#cb66-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb66-4"><a href="#cb66-4" aria-hidden="true" tabindex="-1"></a><span class="co"># unnest demeanor description, such that the sentiment analysis can work</span></span>
+<span id="cb66-5"><a href="#cb66-5" aria-hidden="true" tabindex="-1"></a><span class="co"># https://juliasilge.github.io/tidytext/reference/unnest_tokens.html</span></span>
+<span id="cb66-6"><a href="#cb66-6" aria-hidden="true" tabindex="-1"></a><span class="co"># need to figure out a way to make sure the token that's selected isn't erroneous (i.e. "officer", "and", "to", etc.)</span></span>
+<span id="cb66-7"><a href="#cb66-7" aria-hidden="true" tabindex="-1"></a>stopDemeanorDesc2024 <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span></span>
+<span id="cb66-8"><a href="#cb66-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(STOP_ID, SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX, DEMEANOR_OF_PERSON_STOPPED, FRISKED_FLAG, SEARCHED_FLAG) <span class="sc">%&gt;%</span></span>
+<span id="cb66-9"><a href="#cb66-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unnest_tokens</span>(DEMEANOR, DEMEANOR_OF_PERSON_STOPPED, <span class="at">token =</span> <span class="st">"words"</span>)</span>
+<span id="cb66-10"><a href="#cb66-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb66-11"><a href="#cb66-11" aria-hidden="true" tabindex="-1"></a><span class="co"># get sentiments from AFINN datasets</span></span>
+<span id="cb66-12"><a href="#cb66-12" aria-hidden="true" tabindex="-1"></a><span class="co"># The AFINN lexicon assigns words with a score that runs between -5 and 5, with negative scores indicating negative sentiment and positive scores indicating positive sentiment.</span></span>
+<span id="cb66-13"><a href="#cb66-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb66-14"><a href="#cb66-14" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate sentiment score of officer's description of subject's demeanor for each sto</span></span>
+<span id="cb66-15"><a href="#cb66-15" aria-hidden="true" tabindex="-1"></a>stopDemeanorSentiment <span class="ot">&lt;-</span> stopDemeanorDesc2024 <span class="sc">%&gt;%</span></span>
+<span id="cb66-16"><a href="#cb66-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">full_join</span>(<span class="fu">get_sentiments</span>(<span class="st">"afinn"</span>), <span class="fu">join_by</span>(DEMEANOR <span class="sc">==</span> word)) <span class="sc">%&gt;%</span> <span class="co"># parse through sentiment data set to find and token</span></span>
+<span id="cb66-17"><a href="#cb66-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(SUSPECT_RACE_DESCRIPTION) <span class="sc">%&gt;%</span> <span class="co"># group by race</span></span>
+<span id="cb66-18"><a href="#cb66-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">drop_na</span>(value) <span class="sc">%&gt;%</span> <span class="co"># drop observations with no sentiment score</span></span>
+<span id="cb66-19"><a href="#cb66-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">mean =</span> <span class="fu">round</span>(<span class="fu">mean</span>(value), <span class="dv">3</span>)) <span class="co"># get mean score for each racial group</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb67"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a>custom_glimpse <span class="ot">&lt;-</span> <span class="cf">function</span>(df) {</span>
+<span id="cb67-2"><a href="#cb67-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
+<span id="cb67-3"><a href="#cb67-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">col_name =</span> <span class="fu">colnames</span>(df),</span>
+<span id="cb67-4"><a href="#cb67-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">col_index =</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">ncol</span>(df),</span>
+<span id="cb67-5"><a href="#cb67-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">col_class =</span> <span class="fu">sapply</span>(df, class),</span>
+<span id="cb67-6"><a href="#cb67-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">row.names =</span> <span class="cn">NULL</span></span>
+<span id="cb67-7"><a href="#cb67-7" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb67-8"><a href="#cb67-8" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb67-9"><a href="#cb67-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb67-10"><a href="#cb67-10" aria-hidden="true" tabindex="-1"></a>SQFvariables <span class="ot">&lt;-</span> <span class="fu">custom_glimpse</span>(sqf2024)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb68"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a><span class="co"># group all of the types of forces together</span></span>
+<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a>weaponForces <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"PHYSICAL_FORCE_CEW_FLAG"</span>, <span class="st">"PHYSICAL_FORCE_DRAW_POINT_FIREARM_FLAG"</span>, <span class="st">"PHYSICAL_FORCE_OC_SPRAY_USED_FLAG"</span>, <span class="st">"PHYSICAL_FORCE_WEAPON_IMPACT_FLAG"</span>)</span>
+<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb68-4"><a href="#cb68-4" aria-hidden="true" tabindex="-1"></a>handcuffForce <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span></span>
+<span id="cb68-5"><a href="#cb68-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG =</span> <span class="fu">recode</span>(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG,</span>
+<span id="cb68-6"><a href="#cb68-6" aria-hidden="true" tabindex="-1"></a>                                                       <span class="st">"Y"</span> <span class="ot">=</span> <span class="cn">TRUE</span>,</span>
+<span id="cb68-7"><a href="#cb68-7" aria-hidden="true" tabindex="-1"></a>                                                       <span class="st">"N"</span> <span class="ot">=</span> <span class="cn">FALSE</span>,</span>
+<span id="cb68-8"><a href="#cb68-8" aria-hidden="true" tabindex="-1"></a>                                                       <span class="at">.default =</span> <span class="cn">NA</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb68-9"><a href="#cb68-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(</span>
+<span id="cb68-10"><a href="#cb68-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">count_handcuffForce =</span> <span class="fu">sum</span>(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG <span class="sc">==</span> <span class="cn">TRUE</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb68-11"><a href="#cb68-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">percent_handcuffForce =</span> <span class="fu">round</span>(<span class="fu">mean</span>(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG <span class="sc">==</span> <span class="cn">TRUE</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>)</span>
+<span id="cb68-12"><a href="#cb68-12" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb68-13"><a href="#cb68-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb68-14"><a href="#cb68-14" aria-hidden="true" tabindex="-1"></a><span class="co"># otherForce &lt;- c()</span></span>
+<span id="cb68-15"><a href="#cb68-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb68-16"><a href="#cb68-16" aria-hidden="true" tabindex="-1"></a>forces <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"PHYSICAL_FORCE_CEW_FLAG"</span>, <span class="st">"PHYSICAL_FORCE_DRAW_POINT_FIREARM_FLAG"</span>, <span class="st">"PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG"</span>, <span class="st">"PHYSICAL_FORCE_OC_SPRAY_USED_FLAG"</span>, <span class="st">"PHYSICAL_FORCE_OTHER_FLAG"</span>, <span class="st">"PHYSICAL_FORCE_RESTRAINT_USED_FLAG"</span>, <span class="st">"PHYSICAL_FORCE_VERBAL_INSTRUCTION_FLAG"</span>, <span class="st">"PHYSICAL_FORCE_WEAPON_IMPACT_FLAG"</span>)</span>
+<span id="cb68-17"><a href="#cb68-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb68-18"><a href="#cb68-18" aria-hidden="true" tabindex="-1"></a><span class="co"># create a new variable FORCE_FLAG if at least one FORCE variable is not (NULL)</span></span>
+<span id="cb68-19"><a href="#cb68-19" aria-hidden="true" tabindex="-1"></a>forceByRace2024 <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span></span>
+<span id="cb68-20"><a href="#cb68-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(SUSPECT_RACE_DESCRIPTION <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"BLACK"</span>, <span class="st">"BLACK HISPANIC"</span>, <span class="st">"WHITE HISPANIC"</span>, <span class="st">"WHITE"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb68-21"><a href="#cb68-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">FORCE_FLAG =</span> <span class="fu">if_any</span>(<span class="fu">all_of</span>(forces), <span class="sc">~</span> <span class="sc">!</span><span class="fu">is.na</span>(.) <span class="sc">&amp;</span> . <span class="sc">!=</span> <span class="st">"(null)"</span>),</span>
+<span id="cb68-22"><a href="#cb68-22" aria-hidden="true" tabindex="-1"></a>         <span class="at">FORCE_WEAPON_FLAG =</span> <span class="fu">if_any</span>(<span class="fu">all_of</span>(weaponForces), <span class="sc">~</span> <span class="sc">!</span><span class="fu">is.na</span>(.) <span class="sc">&amp;</span> . <span class="sc">!=</span> <span class="st">"(null)"</span>),</span>
+<span id="cb68-23"><a href="#cb68-23" aria-hidden="true" tabindex="-1"></a>         <span class="at">PHYSICAL_FORCE_OTHER_FLAG =</span> <span class="fu">recode</span>(PHYSICAL_FORCE_OTHER_FLAG,</span>
+<span id="cb68-24"><a href="#cb68-24" aria-hidden="true" tabindex="-1"></a>                                                       <span class="st">"Y"</span> <span class="ot">=</span> <span class="cn">TRUE</span>,</span>
+<span id="cb68-25"><a href="#cb68-25" aria-hidden="true" tabindex="-1"></a>                                                       <span class="st">"N"</span> <span class="ot">=</span> <span class="cn">FALSE</span>,</span>
+<span id="cb68-26"><a href="#cb68-26" aria-hidden="true" tabindex="-1"></a>                                                       <span class="at">.default =</span> <span class="cn">NA</span>)</span>
+<span id="cb68-27"><a href="#cb68-27" aria-hidden="true" tabindex="-1"></a>         )</span>
+<span id="cb68-28"><a href="#cb68-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb68-29"><a href="#cb68-29" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate counts and proportions of use of force</span></span>
+<span id="cb68-30"><a href="#cb68-30" aria-hidden="true" tabindex="-1"></a>forceByRaceTotals2024 <span class="ot">&lt;-</span> forceByRace2024 <span class="sc">%&gt;%</span></span>
+<span id="cb68-31"><a href="#cb68-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(SUSPECT_RACE_DESCRIPTION, FORCE_FLAG, FORCE_WEAPON_FLAG, PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG, PHYSICAL_FORCE_OTHER_FLAG) <span class="sc">%&gt;%</span></span>
+<span id="cb68-32"><a href="#cb68-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb68-33"><a href="#cb68-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb68-34"><a href="#cb68-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">prop =</span> <span class="fu">round</span>(n <span class="sc">/</span> <span class="fu">sum</span>(n), <span class="dv">3</span>),</span>
+<span id="cb68-35"><a href="#cb68-35" aria-hidden="true" tabindex="-1"></a>         <span class="at">cell =</span> <span class="fu">paste0</span>(n, <span class="st">" ("</span>, prop, <span class="st">")"</span>))</span>
+<span id="cb68-36"><a href="#cb68-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb68-37"><a href="#cb68-37" aria-hidden="true" tabindex="-1"></a>forceByRaceTable2024 <span class="ot">&lt;-</span> forceByRaceTotals2024 <span class="sc">%&gt;%</span></span>
+<span id="cb68-38"><a href="#cb68-38" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(FORCE_FLAG, FORCE_WEAPON_FLAG, PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG,</span>
+<span id="cb68-39"><a href="#cb68-39" aria-hidden="true" tabindex="-1"></a>         PHYSICAL_FORCE_OTHER_FLAG, SUSPECT_RACE_DESCRIPTION, cell) <span class="sc">%&gt;%</span></span>
+<span id="cb68-40"><a href="#cb68-40" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(</span>
+<span id="cb68-41"><a href="#cb68-41" aria-hidden="true" tabindex="-1"></a>    <span class="at">names_from =</span> SUSPECT_RACE_DESCRIPTION,</span>
+<span id="cb68-42"><a href="#cb68-42" aria-hidden="true" tabindex="-1"></a>    <span class="at">values_from =</span> cell,</span>
+<span id="cb68-43"><a href="#cb68-43" aria-hidden="true" tabindex="-1"></a>    <span class="at">id_cols =</span> <span class="fu">c</span>(FORCE_FLAG, FORCE_WEAPON_FLAG, PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG, PHYSICAL_FORCE_OTHER_FLAG)</span>
+<span id="cb68-44"><a href="#cb68-44" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb69"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a>sqf2024summary <span class="ot">&lt;-</span> sqf2024 <span class="sc">%&gt;%</span></span>
+<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(</span>
+<span id="cb69-3"><a href="#cb69-3" aria-hidden="true" tabindex="-1"></a>    <span class="co"># count/percent male</span></span>
+<span id="cb69-4"><a href="#cb69-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">count_male =</span> <span class="fu">sum</span>(SUSPECT_SEX <span class="sc">==</span> <span class="st">"MALE"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-5"><a href="#cb69-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">percent_male =</span> <span class="fu">round</span>(<span class="fu">mean</span>(SUSPECT_SEX <span class="sc">==</span> <span class="st">"MALE"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>),</span>
+<span id="cb69-6"><a href="#cb69-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb69-7"><a href="#cb69-7" aria-hidden="true" tabindex="-1"></a>    <span class="co"># count/percent male</span></span>
+<span id="cb69-8"><a href="#cb69-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">count_black =</span> <span class="fu">sum</span>(SUSPECT_RACE_DESCRIPTION <span class="sc">==</span> <span class="st">"BLACK"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-9"><a href="#cb69-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">percent_black =</span> <span class="fu">round</span>(<span class="fu">mean</span>(SUSPECT_RACE_DESCRIPTION <span class="sc">==</span> <span class="st">"BLACK"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>),</span>
+<span id="cb69-10"><a href="#cb69-10" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb69-11"><a href="#cb69-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># count/percent hispanic</span></span>
+<span id="cb69-12"><a href="#cb69-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">count_hispanic =</span> <span class="fu">sum</span>(SUSPECT_RACE_DESCRIPTION <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"BLACK HISPANIC"</span>, <span class="st">"WHITE HISPANIC"</span>), <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-13"><a href="#cb69-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">percent_hispanic =</span> <span class="fu">round</span>(<span class="fu">mean</span>(SUSPECT_RACE_DESCRIPTION <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"BLACK HISPANIC"</span>, <span class="st">"WHITE HISPANIC"</span>), <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>),</span>
+<span id="cb69-14"><a href="#cb69-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb69-15"><a href="#cb69-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># avg age</span></span>
+<span id="cb69-16"><a href="#cb69-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">avg_age =</span> <span class="fu">round</span>(<span class="fu">mean</span>(SUSPECT_REPORTED_AGE, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">1</span>),</span>
+<span id="cb69-17"><a href="#cb69-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb69-18"><a href="#cb69-18" aria-hidden="true" tabindex="-1"></a>    <span class="co"># avg weight</span></span>
+<span id="cb69-19"><a href="#cb69-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">avg_weight =</span> <span class="fu">round</span>(<span class="fu">mean</span>(SUSPECT_WEIGHT, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">1</span>),</span>
+<span id="cb69-20"><a href="#cb69-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb69-21"><a href="#cb69-21" aria-hidden="true" tabindex="-1"></a>    <span class="co"># avg height</span></span>
+<span id="cb69-22"><a href="#cb69-22" aria-hidden="true" tabindex="-1"></a><span class="co">#    avg_height = round(mean(SUSPECT_HEIGHT, na.rm = TRUE), 1),</span></span>
+<span id="cb69-23"><a href="#cb69-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb69-24"><a href="#cb69-24" aria-hidden="true" tabindex="-1"></a>    <span class="co"># count/percent multiple people stopped</span></span>
+<span id="cb69-25"><a href="#cb69-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">count_multi =</span> <span class="fu">sum</span>(OTHER_PERSON_STOPPED_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-26"><a href="#cb69-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">percent_multi =</span> <span class="fu">round</span>(<span class="fu">mean</span>(OTHER_PERSON_STOPPED_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>),</span>
+<span id="cb69-27"><a href="#cb69-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb69-28"><a href="#cb69-28" aria-hidden="true" tabindex="-1"></a>    <span class="co"># count/percent suspect arrested</span></span>
+<span id="cb69-29"><a href="#cb69-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">count_arrested =</span> <span class="fu">sum</span>(SUSPECT_ARRESTED_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-30"><a href="#cb69-30" aria-hidden="true" tabindex="-1"></a>    <span class="at">percent_arrested =</span> <span class="fu">round</span>(<span class="fu">mean</span>(SUSPECT_ARRESTED_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>),</span>
+<span id="cb69-31"><a href="#cb69-31" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb69-32"><a href="#cb69-32" aria-hidden="true" tabindex="-1"></a>    <span class="co"># count/percent casing victim/location</span></span>
+<span id="cb69-33"><a href="#cb69-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">count_casing =</span> <span class="fu">sum</span>(SUSPECTS_ACTIONS_CASING_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-34"><a href="#cb69-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">percent_casing =</span> <span class="fu">round</span>(<span class="fu">mean</span>(SUSPECTS_ACTIONS_CASING_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>),</span>
+<span id="cb69-35"><a href="#cb69-35" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb69-36"><a href="#cb69-36" aria-hidden="true" tabindex="-1"></a>    <span class="co"># count/percent carried weapon</span></span>
+<span id="cb69-37"><a href="#cb69-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">count_weapon =</span> <span class="fu">sum</span>(BACKROUND_CIRCUMSTANCES_SUSPECT_KNOWN_TO_CARRY_WEAPON_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-38"><a href="#cb69-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">percent_weapon =</span> <span class="fu">round</span>(<span class="fu">mean</span>(BACKROUND_CIRCUMSTANCES_SUSPECT_KNOWN_TO_CARRY_WEAPON_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>),</span>
+<span id="cb69-39"><a href="#cb69-39" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb69-40"><a href="#cb69-40" aria-hidden="true" tabindex="-1"></a>    <span class="co"># count/percent concealed weapon</span></span>
+<span id="cb69-41"><a href="#cb69-41" aria-hidden="true" tabindex="-1"></a>    <span class="at">count_concealed =</span> <span class="fu">sum</span>(SUSPECTS_ACTIONS_CONCEALED_POSSESSION_WEAPON_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-42"><a href="#cb69-42" aria-hidden="true" tabindex="-1"></a>    <span class="at">percent_concealed =</span> <span class="fu">round</span>(<span class="fu">mean</span>(SUSPECTS_ACTIONS_CONCEALED_POSSESSION_WEAPON_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>),</span>
+<span id="cb69-43"><a href="#cb69-43" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb69-44"><a href="#cb69-44" aria-hidden="true" tabindex="-1"></a>    <span class="co"># count/percent drug transaction</span></span>
+<span id="cb69-45"><a href="#cb69-45" aria-hidden="true" tabindex="-1"></a>    <span class="at">count_drug =</span> <span class="fu">sum</span>(SUSPECTS_ACTIONS_DRUG_TRANSACTIONS_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-46"><a href="#cb69-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">percent_drug =</span> <span class="fu">round</span>(<span class="fu">mean</span>(SUSPECTS_ACTIONS_DRUG_TRANSACTIONS_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>),</span>
+<span id="cb69-47"><a href="#cb69-47" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb69-48"><a href="#cb69-48" aria-hidden="true" tabindex="-1"></a>    <span class="co"># count/percent criminal conduct</span></span>
+<span id="cb69-49"><a href="#cb69-49" aria-hidden="true" tabindex="-1"></a>    <span class="at">count_criminal =</span> <span class="fu">sum</span>(SUSPECTS_ACTIONS_IDENTIFY_CRIME_PATTERN_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-50"><a href="#cb69-50" aria-hidden="true" tabindex="-1"></a>    <span class="at">percent_criminal =</span> <span class="fu">round</span>(<span class="fu">mean</span>(SUSPECTS_ACTIONS_IDENTIFY_CRIME_PATTERN_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>),</span>
+<span id="cb69-51"><a href="#cb69-51" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb69-52"><a href="#cb69-52" aria-hidden="true" tabindex="-1"></a>    <span class="co"># count/percent lookout</span></span>
+<span id="cb69-53"><a href="#cb69-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">count_lookout =</span> <span class="fu">sum</span>(SUSPECTS_ACTIONS_LOOKOUT_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-54"><a href="#cb69-54" aria-hidden="true" tabindex="-1"></a>    <span class="at">percent_lookout =</span> <span class="fu">round</span>(<span class="fu">mean</span>(SUSPECTS_ACTIONS_LOOKOUT_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>),</span>
+<span id="cb69-55"><a href="#cb69-55" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb69-56"><a href="#cb69-56" aria-hidden="true" tabindex="-1"></a>    <span class="co"># count/percent near crime </span></span>
+<span id="cb69-57"><a href="#cb69-57" aria-hidden="true" tabindex="-1"></a>    <span class="at">count_nearCrime =</span> <span class="fu">sum</span>(SUSPECTS_ACTIONS_PROXIMITY_TO_SCENE_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-58"><a href="#cb69-58" aria-hidden="true" tabindex="-1"></a>    <span class="at">percent_nearCrime =</span> <span class="fu">round</span>(<span class="fu">mean</span>(SUSPECTS_ACTIONS_PROXIMITY_TO_SCENE_FLAG <span class="sc">==</span> <span class="st">"Y"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>),</span>
+<span id="cb69-59"><a href="#cb69-59" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb69-60"><a href="#cb69-60" aria-hidden="true" tabindex="-1"></a>    <span class="co"># stop initiation</span></span>
+<span id="cb69-61"><a href="#cb69-61" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb69-62"><a href="#cb69-62" aria-hidden="true" tabindex="-1"></a>        <span class="co"># count/percent officer initiation</span></span>
+<span id="cb69-63"><a href="#cb69-63" aria-hidden="true" tabindex="-1"></a>        <span class="at">count_officerInitiated =</span> <span class="fu">sum</span>(STOP_WAS_INITIATED <span class="sc">==</span> <span class="st">"Based on Self Initiated"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-64"><a href="#cb69-64" aria-hidden="true" tabindex="-1"></a>        <span class="at">percent_officerInitiated =</span> <span class="fu">round</span>(<span class="fu">mean</span>(STOP_WAS_INITIATED <span class="sc">==</span> <span class="st">"Based on Self Initiated"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>),</span>
+<span id="cb69-65"><a href="#cb69-65" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb69-66"><a href="#cb69-66" aria-hidden="true" tabindex="-1"></a>        <span class="co"># count/percent dispatch initiation</span></span>
+<span id="cb69-67"><a href="#cb69-67" aria-hidden="true" tabindex="-1"></a>        <span class="at">count_dispatchInitiated =</span> <span class="fu">sum</span>(STOP_WAS_INITIATED <span class="sc">==</span> <span class="st">"Based on Radio Run"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-68"><a href="#cb69-68" aria-hidden="true" tabindex="-1"></a>        <span class="at">percent_dispatchInitiated =</span> <span class="fu">round</span>(<span class="fu">mean</span>(STOP_WAS_INITIATED <span class="sc">==</span> <span class="st">"Based on Radio Run"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>), </span>
+<span id="cb69-69"><a href="#cb69-69" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb69-70"><a href="#cb69-70" aria-hidden="true" tabindex="-1"></a>        <span class="co"># count/percent c/w on scene</span></span>
+<span id="cb69-71"><a href="#cb69-71" aria-hidden="true" tabindex="-1"></a>        <span class="at">count_cwInitiated =</span> <span class="fu">sum</span>(STOP_WAS_INITIATED <span class="sc">==</span> <span class="st">"Based on C/W on Scene"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb69-72"><a href="#cb69-72" aria-hidden="true" tabindex="-1"></a>        <span class="at">percent_cwInitiated =</span> <span class="fu">round</span>(<span class="fu">mean</span>(STOP_WAS_INITIATED <span class="sc">==</span> <span class="st">"Based on C/W on Scene"</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">3</span>),</span>
+<span id="cb69-73"><a href="#cb69-73" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb69-74"><a href="#cb69-74" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(</span>
+<span id="cb69-75"><a href="#cb69-75" aria-hidden="true" tabindex="-1"></a>    <span class="at">cols =</span> <span class="fu">everything</span>(),</span>
+<span id="cb69-76"><a href="#cb69-76" aria-hidden="true" tabindex="-1"></a>    <span class="at">names_to =</span> <span class="fu">c</span>(<span class="st">"type"</span>, <span class="st">"metric"</span>),</span>
+<span id="cb69-77"><a href="#cb69-77" aria-hidden="true" tabindex="-1"></a>    <span class="at">names_sep =</span> <span class="st">"_"</span>,</span>
+<span id="cb69-78"><a href="#cb69-78" aria-hidden="true" tabindex="-1"></a>    <span class="at">values_to =</span> <span class="st">"value"</span></span>
+<span id="cb69-79"><a href="#cb69-79" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb69-80"><a href="#cb69-80" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(</span>
+<span id="cb69-81"><a href="#cb69-81" aria-hidden="true" tabindex="-1"></a>    <span class="at">names_from =</span> type,</span>
+<span id="cb69-82"><a href="#cb69-82" aria-hidden="true" tabindex="-1"></a>    <span class="at">values_from =</span> value</span>
+<span id="cb69-83"><a href="#cb69-83" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb69-84"><a href="#cb69-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb69-85"><a href="#cb69-85" aria-hidden="true" tabindex="-1"></a>sqf2024summary <span class="sc">%&gt;%</span></span>
+<span id="cb69-86"><a href="#cb69-86" aria-hidden="true" tabindex="-1"></a><span class="fu">kbl</span>(<span class="at">caption =</span> <span class="st">"Descriptive Statistics, Stop-and-Frisk 2024 (N = 24,395"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb69-87"><a href="#cb69-87" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable_classic</span>(<span class="st">"striped"</span>, <span class="at">full_width =</span> F, <span class="at">html_font =</span> <span class="st">"Cambria"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<table class="lightable-classic lightable-striped table table-sm table-striped small" data-quarto-postprocess="true">
+<caption>Descriptive Statistics, Stop-and-Frisk 2024 (N = 24,395</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;" data-quarto-table-cell-role="th">metric</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">count</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">percent</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">avg</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">male</td>
+<td style="text-align: right;">22543</td>
+<td style="text-align: right;">0.928</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">black</td>
+<td style="text-align: right;">14662</td>
+<td style="text-align: right;">0.601</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">hispanic</td>
+<td style="text-align: right;">7662</td>
+<td style="text-align: right;">0.314</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">age</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">27.9</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">weight</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">165.6</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">multi</td>
+<td style="text-align: right;">6804</td>
+<td style="text-align: right;">0.279</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">arrested</td>
+<td style="text-align: right;">6850</td>
+<td style="text-align: right;">0.281</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">casing</td>
+<td style="text-align: right;">859</td>
+<td style="text-align: right;">1.000</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">weapon</td>
+<td style="text-align: right;">613</td>
+<td style="text-align: right;">1.000</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">concealed</td>
+<td style="text-align: right;">10805</td>
+<td style="text-align: right;">1.000</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">drug</td>
+<td style="text-align: right;">204</td>
+<td style="text-align: right;">1.000</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">criminal</td>
+<td style="text-align: right;">118</td>
+<td style="text-align: right;">1.000</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">lookout</td>
+<td style="text-align: right;">319</td>
+<td style="text-align: right;">1.000</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">nearCrime</td>
+<td style="text-align: right;">8322</td>
+<td style="text-align: right;">1.000</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">officerInitiated</td>
+<td style="text-align: right;">12199</td>
+<td style="text-align: right;">0.500</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">dispatchInitiated</td>
+<td style="text-align: right;">9727</td>
+<td style="text-align: right;">0.399</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">cwInitiated</td>
+<td style="text-align: right;">2469</td>
+<td style="text-align: right;">0.101</td>
+<td style="text-align: right;">NA</td>
+</tr>
+</tbody>
+</table>
+
+
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb70"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a><span class="co"># average population of each precinct</span></span>
+<span id="cb70-2"><a href="#cb70-2" aria-hidden="true" tabindex="-1"></a>avgPop <span class="ot">=</span> nypdCensus2020Races <span class="sc">%&gt;%</span></span>
+<span id="cb70-3"><a href="#cb70-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">avg =</span> <span class="fu">round</span>(<span class="fu">mean</span>(P1_001N), <span class="dv">0</span>))</span>
+<span id="cb70-4"><a href="#cb70-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb70-5"><a href="#cb70-5" aria-hidden="true" tabindex="-1"></a><span class="co"># average percent black of each precinct</span></span>
+<span id="cb70-6"><a href="#cb70-6" aria-hidden="true" tabindex="-1"></a>pctBlack <span class="ot">=</span> nypdCensus2020Races <span class="sc">%&gt;%</span></span>
+<span id="cb70-7"><a href="#cb70-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">avg =</span> <span class="fu">round</span>(<span class="fu">mean</span>(P1_004N<span class="sc">/</span>P1_001N), <span class="dv">4</span>))</span>
+<span id="cb70-8"><a href="#cb70-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb70-9"><a href="#cb70-9" aria-hidden="true" tabindex="-1"></a><span class="co"># average percent hispanic of each precinct</span></span>
+<span id="cb70-10"><a href="#cb70-10" aria-hidden="true" tabindex="-1"></a>pctHispanic <span class="ot">=</span> nypdCensus2020Races <span class="sc">%&gt;%</span></span>
+<span id="cb70-11"><a href="#cb70-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">avg =</span> <span class="fu">round</span>(<span class="fu">mean</span>(P2_002N<span class="sc">/</span>P1_001N), <span class="dv">4</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
 
 </main>
 <!-- /main column -->
@@ -360,7 +893,18 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     }
     return false;
   }
-  const onCopySuccess = function(e) {
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
     // button target
     const button = e.trigger;
     // don't keep focus
@@ -392,48 +936,11 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     }, 1000);
     // clear code selection
     e.clearSelection();
-  }
-  const getTextToCopy = function(trigger) {
-      const codeEl = trigger.previousElementSibling.cloneNode(true);
-      for (const childEl of codeEl.children) {
-        if (isCodeAnnotation(childEl)) {
-          childEl.remove();
-        }
-      }
-      return codeEl.innerText;
-  }
-  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
-    text: getTextToCopy
   });
-  clipboard.on('success', onCopySuccess);
-  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
-    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
-      text: getTextToCopy,
-      container: window.document.getElementById('quarto-embedded-source-code-modal')
-    });
-    clipboardModal.on('success', onCopySuccess);
-  }
-    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
-    var mailtoRegex = new RegExp(/^mailto:/);
-      var filterRegex = new RegExp('/' + window.location.host + '/');
-    var isInternal = (href) => {
-        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
-    }
-    // Inspect non-navigation links and adorn them if external
- 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
-    for (var i=0; i<links.length; i++) {
-      const link = links[i];
-      if (!isInternal(link.href)) {
-        // undo the damage that might have been done by quarto-nav.js in the case of
-        // links that we want to consider external
-        if (link.dataset.originalHref !== undefined) {
-          link.href = link.dataset.originalHref;
-        }
-      }
-    }
-  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+  function tippyHover(el, contentFn) {
     const config = {
       allowHTML: true,
+      content: contentFn,
       maxWidth: 500,
       delay: 100,
       arrow: false,
@@ -443,17 +950,8 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       interactive: true,
       interactiveBorder: 10,
       theme: 'quarto',
-      placement: 'bottom-start',
+      placement: 'bottom-start'
     };
-    if (contentFn) {
-      config.content = contentFn;
-    }
-    if (onTriggerFn) {
-      config.onTrigger = onTriggerFn;
-    }
-    if (onUntriggerFn) {
-      config.onUntrigger = onUntriggerFn;
-    }
     window.tippy(el, config); 
   }
   const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
@@ -465,129 +963,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       try { href = new URL(href).hash; } catch {}
       const id = href.replace(/^#\/?/, "");
       const note = window.document.getElementById(id);
-      if (note) {
-        return note.innerHTML;
-      } else {
-        return "";
-      }
-    });
-  }
-  const xrefs = window.document.querySelectorAll('a.quarto-xref');
-  const processXRef = (id, note) => {
-    // Strip column container classes
-    const stripColumnClz = (el) => {
-      el.classList.remove("page-full", "page-columns");
-      if (el.children) {
-        for (const child of el.children) {
-          stripColumnClz(child);
-        }
-      }
-    }
-    stripColumnClz(note)
-    if (id === null || id.startsWith('sec-')) {
-      // Special case sections, only their first couple elements
-      const container = document.createElement("div");
-      if (note.children && note.children.length > 2) {
-        container.appendChild(note.children[0].cloneNode(true));
-        for (let i = 1; i < note.children.length; i++) {
-          const child = note.children[i];
-          if (child.tagName === "P" && child.innerText === "") {
-            continue;
-          } else {
-            container.appendChild(child.cloneNode(true));
-            break;
-          }
-        }
-        if (window.Quarto?.typesetMath) {
-          window.Quarto.typesetMath(container);
-        }
-        return container.innerHTML
-      } else {
-        if (window.Quarto?.typesetMath) {
-          window.Quarto.typesetMath(note);
-        }
-        return note.innerHTML;
-      }
-    } else {
-      // Remove any anchor links if they are present
-      const anchorLink = note.querySelector('a.anchorjs-link');
-      if (anchorLink) {
-        anchorLink.remove();
-      }
-      if (window.Quarto?.typesetMath) {
-        window.Quarto.typesetMath(note);
-      }
-      if (note.classList.contains("callout")) {
-        return note.outerHTML;
-      } else {
-        return note.innerHTML;
-      }
-    }
-  }
-  for (var i=0; i<xrefs.length; i++) {
-    const xref = xrefs[i];
-    tippyHover(xref, undefined, function(instance) {
-      instance.disable();
-      let url = xref.getAttribute('href');
-      let hash = undefined; 
-      if (url.startsWith('#')) {
-        hash = url;
-      } else {
-        try { hash = new URL(url).hash; } catch {}
-      }
-      if (hash) {
-        const id = hash.replace(/^#\/?/, "");
-        const note = window.document.getElementById(id);
-        if (note !== null) {
-          try {
-            const html = processXRef(id, note.cloneNode(true));
-            instance.setContent(html);
-          } finally {
-            instance.enable();
-            instance.show();
-          }
-        } else {
-          // See if we can fetch this
-          fetch(url.split('#')[0])
-          .then(res => res.text())
-          .then(html => {
-            const parser = new DOMParser();
-            const htmlDoc = parser.parseFromString(html, "text/html");
-            const note = htmlDoc.getElementById(id);
-            if (note !== null) {
-              const html = processXRef(id, note);
-              instance.setContent(html);
-            } 
-          }).finally(() => {
-            instance.enable();
-            instance.show();
-          });
-        }
-      } else {
-        // See if we can fetch a full url (with no hash to target)
-        // This is a special case and we should probably do some content thinning / targeting
-        fetch(url)
-        .then(res => res.text())
-        .then(html => {
-          const parser = new DOMParser();
-          const htmlDoc = parser.parseFromString(html, "text/html");
-          const note = htmlDoc.querySelector('main.content');
-          if (note !== null) {
-            // This should only happen for chapter cross references
-            // (since there is no id in the URL)
-            // remove the first header
-            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
-              note.children[0].remove();
-            }
-            const html = processXRef(null, note);
-            instance.setContent(html);
-          } 
-        }).finally(() => {
-          instance.enable();
-          instance.show();
-        });
-      }
-    }, function(instance) {
+      return note.innerHTML;
     });
   }
       let selectedAnnoteEl;
@@ -631,7 +1007,6 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
             }
             div.style.top = top - 2 + "px";
             div.style.height = height + 4 + "px";
-            div.style.left = 0;
             let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
             if (gutterDiv === null) {
               gutterDiv = window.document.createElement("div");
@@ -657,32 +1032,6 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
         });
         selectedAnnoteEl = undefined;
       };
-        // Handle positioning of the toggle
-    window.addEventListener(
-      "resize",
-      throttle(() => {
-        elRect = undefined;
-        if (selectedAnnoteEl) {
-          selectCodeLines(selectedAnnoteEl);
-        }
-      }, 10)
-    );
-    function throttle(fn, ms) {
-    let throttle = false;
-    let timer;
-      return (...args) => {
-        if(!throttle) { // first call gets through
-            fn.apply(this, args);
-            throttle = true;
-        } else { // all the others get throttled
-            if(timer) clearTimeout(timer); // cancel #2
-            timer = setTimeout(() => {
-              fn.apply(this, args);
-              timer = throttle = false;
-            }, ms);
-        }
-      };
-    }
       // Attach click handler to the DT
       const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
       for (const annoteDlNode of annoteDls) {
@@ -743,7 +1092,6 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 });
 </script>
 </div> <!-- /content -->
-
 
 
 
