@@ -1,0 +1,610 @@
+---
+title: "stops"
+output: html_document
+---
+
+```{r prepping doc and data}
+
+# list of required packages
+required_packages <- c("tidyverse", "readxl", "mapview", "sf", "tinytext", "textdata", "kableExtra")
+
+# initialize server that hosts a copy of the CRAN (Comprehensive R Archive Network) repository
+# which contains R packages, documentation, and software.
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+# check and install any missing packages
+installed_packages <- rownames(installed.packages())
+for (pkg in required_packages) {
+  if (!pkg %in% installed_packages) {
+    install.packages(pkg)
+  }
+}
+
+# load libraries
+library(tidyverse)
+library(readxl)
+library(mapview)
+library(sf)
+library(kableExtra)
+
+options(digits=2)
+
+# load 2024 sqf data
+# treating (null) values as NA values, for simplicity in the analysis. note that where NA appears in the data, it is because the officer there was no data for that fields not that, it was not applicable to the situation.
+sqf2024 <- read_excel("r-data/nypd-stop/sqf-2024.xlsx", na = "(null)")
+
+# tidy fields
+sqf2024 <- sqf2024 %>%
+  mutate(STOP_FRISK_DATE = as.Date(STOP_FRISK_DATE, origin = "1900-01-01"),
+         STOP_LOCATION_X = as.numeric(STOP_LOCATION_X),
+         STOP_LOCATION_Y = as.numeric(STOP_LOCATION_Y)) %>%
+  filter(!is.na(SUSPECT_RACE_DESCRIPTION))
+
+total_obs <- nrow(sqf2024)
+
+BWH <- c("BLACK", "WHITE", "BLACK HISPANIC", "WHITE HISPANIC")
+
+```
+
+# Descriptive analysis of Stops
+
+```{r quick stop analysis}
+
+# stop breakdown, by race and arrest rate
+stopsByRace <- sqf2024 %>% 
+  group_by(SUSPECT_RACE_DESCRIPTION) %>%
+  count() %>%
+  mutate(prop = n / total_obs) 
+
+```
+
+## Summary Statistics
+
+```{r summary statistics}
+
+sqf2024summary <- sqf2024 %>%
+  summarize(
+    # count/percent male
+    count_male = sum(SUSPECT_SEX == "MALE", na.rm = TRUE),
+    percent_male = count_male / total_obs,
+    
+    # count/percent black
+    count_black = sum(SUSPECT_RACE_DESCRIPTION == "BLACK", na.rm = TRUE),
+    percent_black = count_black / total_obs,
+    
+    # count/percent hispanic
+    count_hispanic = sum(SUSPECT_RACE_DESCRIPTION %in% c("BLACK HISPANIC", "WHITE HISPANIC"), na.rm = TRUE),
+    percent_hispanic = count_hispanic / total_obs,
+    
+    # count/percent white
+    count_white = sum(SUSPECT_RACE_DESCRIPTION == "WHITE", na.rm = TRUE),
+    percent_white = count_white / total_obs,
+
+    # avg age
+    avg_age = mean(SUSPECT_REPORTED_AGE, na.rm = TRUE),
+
+    # avg weight
+    avg_weight = mean(SUSPECT_WEIGHT, na.rm = TRUE),
+
+    # count/percent multiple people stopped
+    count_multi = sum(OTHER_PERSON_STOPPED_FLAG == "Y", na.rm = TRUE),
+    percent_multi = count_multi / total_obs,
+
+    # count/percent suspect arrested
+    count_arrested = sum(SUSPECT_ARRESTED_FLAG == "Y", na.rm = TRUE),
+    percent_arrested = count_arrested / total_obs,
+    
+    # count/percent suspect engaged in violent crime
+    count_violentCrime = sum(BACKROUND_CIRCUMSTANCES_VIOLENT_CRIME_FLAG == "Y", na.rm = TRUE),
+    percent_violentCrime = count_violentCrime / total_obs,
+
+    # count/percent casing victim/location
+    count_casing = sum(SUSPECTS_ACTIONS_CASING_FLAG == "Y", na.rm = TRUE),
+    percent_casing = count_casing / total_obs,
+
+    # count/percent carried weapon
+    count_weapon = sum(BACKROUND_CIRCUMSTANCES_SUSPECT_KNOWN_TO_CARRY_WEAPON_FLAG == "Y", na.rm = TRUE),
+    percent_weapon = count_weapon / total_obs,
+
+    # count/percent concealed weapon
+    count_concealed = sum(SUSPECTS_ACTIONS_CONCEALED_POSSESSION_WEAPON_FLAG == "Y", na.rm = TRUE),
+    percent_concealed = count_concealed / total_obs,
+
+    # count/percent drug transaction
+    count_drug = sum(SUSPECTS_ACTIONS_DRUG_TRANSACTIONS_FLAG == "Y", na.rm = TRUE),
+    percent_drug = count_drug / total_obs,
+
+    # count/percent criminal conduct
+    count_criminal = sum(SUSPECTS_ACTIONS_IDENTIFY_CRIME_PATTERN_FLAG == "Y", na.rm = TRUE),
+    percent_criminal = count_criminal / total_obs,
+
+    # count/percent lookout
+    count_lookout = sum(SUSPECTS_ACTIONS_LOOKOUT_FLAG == "Y", na.rm = TRUE),
+    percent_lookout = count_lookout / total_obs,
+
+    # count/percent near crime 
+    count_nearCrime = sum(SUSPECTS_ACTIONS_PROXIMITY_TO_SCENE_FLAG == "Y", na.rm = TRUE),
+    percent_nearCrime = count_nearCrime / total_obs,
+
+    # stop initiation
+    count_officerInitiated = sum(STOP_WAS_INITIATED == "Based on Self Initiated", na.rm = TRUE),
+    percent_officerInitiated = count_officerInitiated / total_obs,
+
+    count_dispatchInitiated = sum(STOP_WAS_INITIATED == "Based on Radio Run", na.rm = TRUE),
+    percent_dispatchInitiated = count_dispatchInitiated / total_obs, 
+
+    count_cwInitiated = sum(STOP_WAS_INITIATED == "Based on C/W on Scene", na.rm = TRUE),
+    percent_cwInitiated = count_cwInitiated / total_obs
+  ) %>%
+  mutate(total_total = total_obs) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = c("type", "metric"),
+    names_sep = "_",
+    values_to = "value"
+  ) %>%
+  pivot_wider(
+    names_from = type,
+    values_from = value
+  )
+
+```
+
+## Stops by Boro
+
+```{r stop analysis, by boro}
+
+# stop breakdown, by race and boro
+stopsByBoro <- sqf2024 %>% 
+  group_by(SUSPECT_RACE_DESCRIPTION, STOP_LOCATION_BORO_NAME) %>%
+  count() %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
+  ungroup(SUSPECT_RACE_DESCRIPTION) %>%
+  mutate(prop = n / sum(n)) %>%
+  pivot_wider(names_from = SUSPECT_RACE_DESCRIPTION, 
+              values_from = c(n, prop),
+              names_sort = TRUE,
+              names_vary = "slowest"
+)
+
+```
+
+# Geospatial Analysis
+
+## New York City
+
+```{r map of nyc}
+# grab boro boundaries geoJSON file from NYC Planning website
+# Borough Boundaries (Clipped to Shoreline)
+# Date of Data: May 2025
+  # https://www.nyc.gov/content/planning/pages/resources/datasets/borough-boundaries
+
+# initialize geospatial data available at the geojson format
+nyc_geojson <- tempfile(fileext = ".pgeojson")
+
+# download boro boundaries json file
+download.file(
+  "https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Borough_Boundary/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson",
+  nyc_geojson)
+
+# read the nyc json file to a shapefile
+nyc_sf <- read_sf(nyc_geojson)
+
+# plot the NYC map
+nycMAP <- ggplot(nyc_sf) +
+  geom_sf(fill = "white", color = "black", linewidth = 0.3) +
+  theme_void()
+
+```
+
+### Mapping Stops to NYC
+
+```{r mapping stops to nyc map}
+
+# convert coordinates from sqf data to sf object
+stops2024_sf <- sqf2024 %>%
+  drop_na(STOP_LOCATION_X, STOP_LOCATION_Y) %>%
+  st_as_sf(coords = c("STOP_LOCATION_X", "STOP_LOCATION_Y"), crs = 2263) %>%
+  st_transform(crs = 4326)
+
+# dot stop map
+nycMAP <- ggplot(nyc_sf) +
+  geom_sf(fill = "white", color = "black", linewidth = 0.3) +
+  geom_sf(
+    data = stops2024_sf,
+    aes(geometry = geometry, color = SUSPECT_RACE_DESCRIPTION),
+    size = 0.25,
+    alpha = 0.4) +         
+  coord_sf(xlim = c(-74.3, -73.65), ylim = c(40.48, 40.95)) +
+  theme_void() +
+  scale_color_viridis_d(option = "B") +
+  labs(color = "Suspect Race or Ethnicity") +
+  theme(
+    legend.key = element_rect(fill = NA, color = NA), legend.key.size = unit(0.5, "cm"),                        
+    legend.title = element_text(size = 8), legend.text = element_text(size = 7),                     
+    legend.spacing.y = unit(0.2, "cm"), legend.box.spacing = unit(0.3, "cm")                      
+  ) +
+  guides(color = guide_legend(override.aes = list(shape = 15, size = 4)))
+
+```
+
+## NYPD Precincts
+
+```{r create map of nypd precincts}
+
+# grab precinct boundaries geoJSON file from NYC Planning website
+# Police Precincts (Clipped to Shoreline)
+# Date of Data: May 2025
+  # https://www.nyc.gov/content/planning/pages/resources/datasets/police-precincts
+
+# initialize geospatial data available at the geojson format
+nypd_geojson <- tempfile(fileext = ".pgeojson")
+
+# download boro boundaries json file
+download.file(
+  "https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Police_Precincts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson",
+  nypd_geojson)
+
+# read the nyc json file to a shapefile
+nypd_sf <- read_sf(nypd_geojson)
+
+# format `Precinct` to match variable name in sqf dfs
+nypd_sf$Precinct <- sprintf("%03d", as.integer(nypd_sf$Precinct))
+
+# plot the NYPD map
+nypdMAP <- ggplot(nypd_sf) +
+  geom_sf(fill = "white", color = "black", linewidth = 0.3) +
+  theme_void()
+
+```
+
+### Precinct 2020 Census Data
+
+```{r load nypd precinct 2020 census data}
+
+nypdCensus2020 <- read_csv("r-data/census/nyc_precinct_2020pop.csv")
+
+# format `Precinct` to match variable name in sqf dfs
+nypdCensus2020$precinct <- sprintf("%03d", as.integer(nypdCensus2020$precinct))
+
+# census (only one race totals and total 2+ races)
+nypdCensus2020Races <- nypdCensus2020 %>%
+  select(precinct, P1_001N, P1_002N, P1_003N, P1_004N, P1_005N, P1_006N, P1_007N, P1_008N, P1_009N, P2_002N, P2_003N)
+
+# precincts, proportion of black residents
+nypdCensus2020Black <- nypdCensus2020 %>%
+  select(precinct, P1_001N, P1_004N) %>%
+  mutate(prop = round(P1_004N / P1_001N, 2))
+
+```
+
+```{r heat map of black NYC residents, by nypd precinct}
+
+# join census data to spatial precinct data
+nypd_sf <- nypd_sf %>%
+  mutate(Precinct = as.character(Precinct)) %>%
+  left_join(
+    nypdCensus2020Black %>%
+      mutate(precinct = as.character(precinct)),
+    by = c("Precinct" = "precinct")
+  )
+
+# plot heatmap of proportion Black, by precinct
+blackHeatMap <- ggplot(nypd_sf) +
+  geom_sf(aes(fill = prop), color = "white", linewidth = 0.3) +
+  scale_fill_viridis_c(
+    option = "rocket",
+    name = "Proportion of Black Residents",
+    labels = scales::label_percent(accuracy = 1),
+    na.value = "gray90"
+  ) +
+  theme_void() +
+  labs(title = "Proportion of Black NYC Residents, by NYPD Precinct")
+
+```
+
+### Precinct Crime Data
+
+```{r precinct crime data}
+
+# Historical New York City Crime Data
+# https://www.nyc.gov/site/nypd/stats/crime-statistics/historical.page
+
+# load counts for seven major felony crimes, by precinct
+# murder and non-negligent manslaughter, forcible rape, robbery, felony assault, burglary, grand larceny, and grand larceny auto
+precinctFelonyRates <- read_excel("r-data/nypd-crime/major-felony-counts-precinct.xlsx", na = "(null)") %>%
+  filter(CRIME != "TOTAL SEVEN MAJOR FELONY OFFENSES")
+
+precinctMisdomRates <- 
+  
+  
+# Misdemeanor Crime Category Notes
+  
+
+# log-transforming felony crimes
+precinctFelonyRatesLog <- precinctFelonyRates
+precinctFelonyRatesLog[, 3:17] <- log(precinctFelonyRates[3:17])
+
+
+```
+
+“The log transformation is a common method in biomedical and psychosocial research to deal with skewed data—that is, data that are not normally distributed and, therefore, violate the assumptions of many statistical tests. To address the problem, log transformations use algebra to normalize the data as much as possible, thereby increasing the validity of the associated statistical analyses.” ([Fradella et al., 2021, p. 1182](zotero://select/library/items/Z2LL3JZU))([pdf](zotero://open-pdf/library/items/96KMA572?page=32&annotation=C3D4YXSW))
+
+Still I should considered alternative normalization methods, as **the log transformation's efficacy is contested**.
+
+> Using transformations in general and log transformation in particular can be quite problematic. If such an approach is used, the researcher must be mindful about its limitations, particularly when interpreting the relevance of the analysis of transformed data for the hypothesis of interest about the original data. For example, we have demonstrated that in most circumstances the log transformation does not help make data less variable or more normal and may, in some circumstances, make data more variable and more skewed. Furthermore, log-transformed data cannot usually facilitate inferences concerning the original data, since it shares little in common with the original data. [FENG, Changyong, Hongyue WANG, Naiji LU, Tian CHEN, Hua HE, Ying LU, and Xin M. TU. “Log-Transformation and Its Implications for Data Analysis.” Shanghai Archives of Psychiatry 26, no. 2 (April 2014): 105–9.](https://doi.org/10.3969/j.issn.1002-0829.2014.02.009.)
+
+> For many applications, rather than trying to find an appropriate statistical distribution or transformation to model the observed data, it would probably be better to abandon this classic approach and switch to modern distribution-free methods. [FENG, Changyong, Hongyue WANG, Naiji LU, Tian CHEN, Hua HE, Ying LU, and Xin M. TU. “Log-Transformation and Its Implications for Data Analysis.” Shanghai Archives of Psychiatry 26, no. 2 (April 2014): 105–9.](https://doi.org/10.3969/j.issn.1002-0829.2014.02.009.)
+
+**Misdemeanor CRIME CATEGORY NOTES**
+
+1.  Total of all top charge Misdemeanor Dangerous Drugs arrests made by all arresting agencies. Contains Criminal Possession of Controlled Substance, Criminally Possessing a Hypodermic Instrument, Criminally using Drug Paraphernalia, Criminal Possession of Methamphetamine Manufacturing Material, Criminal Possession of Marijuana, Criminal Sale of Marijuana
+
+2.  Contains Bail Jumping, Perjury, Criminal Contempt, Resisting Arrest, Absconding From Work Release, and Obstructing Governmental Administration
+
+3.  Contains primarily Criminal Impersonation and Identity Theft offenses
+
+4.  Contains Sexual Abuse, Sexual Misconduct, Forcible Touching, Endangering the Welfare of a Child, and Obscenity
+
+5.  Contains Criminal Possession of Weapon, Criminal Purchase of Weapon, Prohibited Use of Weapons, and Manufacture Transport Disposition and Defacement of Weapons
+
+6.  Contains primarily unclassified offenses in the Administrative Code such as Graffiti violations and cigarettes without a tax stamp
+
+7.  Contains primarily Reckless Endangerment 2, Custodial Inference 2, and Unlawful Imprisonment 2
+
+8.  Contains primarily Prostitution, Gambling, Larceny of Auto, Public Lewdness, and other State Laws (Tax Law, ABC, etc.)
+
+# Stop-and-Frisk Data
+
+## Stops
+
+```{r heat map of black stops, by nypd precinct}
+
+# calculate total number of stops in each precinct
+totalStops <- sqf2024 %>% group_by(STOP_LOCATION_PRECINCT) %>%
+  summarise(totalStops = n())
+
+# census (only one race totals and total 2+ races)
+sqf2024raceTotals <- sqf2024 %>%
+  select(STOP_ID, STOP_LOCATION_PRECINCT, SUSPECT_RACE_DESCRIPTION) %>%
+  group_by(STOP_LOCATION_PRECINCT) %>%
+  count(SUSPECT_RACE_DESCRIPTION)
+
+# precincts, proportion of black residents
+sqf2024raceTotals <- sqf2024raceTotals %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# filter to only include black stops
+sqf2024raceBlack <- sqf2024raceTotals %>%
+  filter(SUSPECT_RACE_DESCRIPTION == "BLACK") %>%
+  select(!SUSPECT_RACE_DESCRIPTION)
+
+# join census data to spatial precinct data
+nypd_sf <- nypd_sf %>%
+  left_join(sqf2024raceBlack, by = c("Precinct" = "STOP_LOCATION_PRECINCT"))  %>%
+  left_join(totalStops, by = c("Precinct" = "STOP_LOCATION_PRECINCT"))
+
+# rename variables in shapefile
+nypd_sf <- nypd_sf %>% rename(popTotal = P1_001N,
+                              popBlack = P1_004N,
+                              popPropBlack = prop.x,
+                              stopsBlack = n,
+                              stopPropBlack = prop.y)
+
+# plot heatmap of proportion Black stops, by precinct
+blackStopHeatMap <- ggplot(nypd_sf) +
+  geom_sf(aes(fill = stopPropBlack), color = "white", linewidth = 0.3) +
+  scale_fill_viridis_c(
+    option = "rocket",
+    name = "Proportion Black SQFs",
+    labels = scales::label_percent(accuracy = 1),
+    na.value = "gray90"
+  ) +
+  theme_void() +
+  labs(title = "Proportion of Black NYC Residents, by NYPD Precinct")
+
+print(blackHeatMap)
+print(blackStopHeatMap)
+
+```
+
+### Black Stops
+
+```{r}
+
+# Calculate disparity
+nypd_sf$stopDisparity <- nypd_sf$stopPropBlack - nypd_sf$popPropBlack
+
+# Fit linear model
+model <- lm(stopPropBlack ~ popPropBlack, data = nypd_sf)
+r2 <- summary(model)$r.squared
+r2_label <- paste0("R² = ", round(r2, 3))
+
+# Create plot
+ggplot(nypd_sf, aes(x = popPropBlack, y = stopPropBlack)) +
+  geom_point(aes(size = totalStops, color = stopDisparity)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dotted") +
+  annotate("text", x = 0.05, y = max(nypd_sf$stopPropBlack), label = r2_label, hjust = 0, size = 4) +
+  scale_color_viridis_c() +
+  labs(
+    title = "Proportion of Black Stops vs. Black Population",
+    x = "Proportion of Black Population",
+    y = "Proportion of Stops Involving Black Individuals",
+    color = "Disparity",
+    size = "Total Number of Stops"
+  ) +
+  theme_minimal()
+
+chisq.test(
+  x = c(nypd_sf$stopsBlack[1], nypd_sf$totalStops[1] - nypd_sf$stopsBlack[1]),
+  p = c(nypd_sf$popPropBlack[1], 1 - nypd_sf$popPropBlack[1])
+)
+
+ggplot(nypd_sf) +
+  geom_sf(aes(fill = stopDisparity)) +
+  scale_fill_viridis_c() +
+  labs(
+    title = "Geographic Distribution of Stop Disparity",
+    fill = "Stop Disparity"
+  ) +
+  theme_minimal()
+
+```
+
+## Frisks
+
+```{r frisks by race, gender}
+
+# calculate frisks by race
+frisksByRace2024 <- sqf2024 %>%
+  group_by(FRISKED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) %>%
+  drop_na(SUSPECT_SEX) %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "BLACK HISPANIC", "WHITE HISPANIC", "WHITE")) %>%
+  count() %>%
+  ungroup() %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# create subtotals by race
+subtotals <- frisksByRace2024 %>%
+  group_by(SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) %>%
+  summarise(n = sum(n), .groups = "drop") %>%
+  mutate(FRISKED_FLAG = "Subtotal")
+
+# combine racial subtotals with original frisks table 
+frisksByRace2024 <- bind_rows(frisksByRace2024, subtotals) %>%
+  arrange(match(FRISKED_FLAG, c("Y", "N", "Subtotal")),
+          match(SUSPECT_SEX, c("MALE", "FEMALE")),
+          SUSPECT_RACE_DESCRIPTION)
+
+# pivot wider
+frisksByRace2024 <- frisksByRace2024 %>%
+  mutate(cell = paste0(n, " (", scales::percent(n / sum(n), accuracy = 0.1), " of total stops)")) %>%
+  select(FRISKED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION, cell) %>%
+  pivot_wider(names_from = c(SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX), values_from = cell)
+frisksByRace2024
+
+```
+
+## Searches
+
+```{r searches by race, gender}
+
+# calculate searches by race
+searchesByRace2024 <- sqf2024 %>%
+  group_by(SEARCHED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) %>%
+  drop_na(SUSPECT_SEX) %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "BLACK HISPANIC", "WHITE HISPANIC", "WHITE")) %>%
+  count() %>%
+  ungroup() %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# pivot wider
+searchesByRace2024 <- searchesByRace2024 %>%
+  arrange(match(SEARCHED_FLAG, c("Y", "N")),
+          match(SUSPECT_SEX, c("MALE", "FEMALE"))) %>%
+  mutate(cell = paste0(n, " (", scales::percent(n / sum(n), accuracy = 0.1), " of total stops)")) %>%
+  select(SEARCHED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION, cell) %>%
+  pivot_wider(names_from = c(SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX),
+              values_from = cell)
+
+```
+
+## Use of Force
+
+```{r use of force}
+
+# group all of the types of forces together
+weaponForces <- c("PHYSICAL_FORCE_CEW_FLAG", "PHYSICAL_FORCE_DRAW_POINT_FIREARM_FLAG", "PHYSICAL_FORCE_OC_SPRAY_USED_FLAG", "PHYSICAL_FORCE_WEAPON_IMPACT_FLAG")
+
+handcuffForce <- sqf2024 %>%
+  mutate(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG = recode(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG,
+                                                       "Y" = TRUE,
+                                                       "N" = FALSE,
+                                                       .default = NA)) %>%
+  summarize(
+    count_handcuffForce = sum(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG == TRUE, na.rm = TRUE),
+    percent_handcuffForce = round(mean(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG == TRUE, na.rm = TRUE), 3)
+  )
+
+# otherForce <- c()
+
+forces <- c("PHYSICAL_FORCE_CEW_FLAG", "PHYSICAL_FORCE_DRAW_POINT_FIREARM_FLAG", "PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG", "PHYSICAL_FORCE_OC_SPRAY_USED_FLAG", "PHYSICAL_FORCE_OTHER_FLAG", "PHYSICAL_FORCE_RESTRAINT_USED_FLAG", "PHYSICAL_FORCE_VERBAL_INSTRUCTION_FLAG", "PHYSICAL_FORCE_WEAPON_IMPACT_FLAG")
+
+# create a new variable FORCE_FLAG if at least one FORCE variable is not (NULL)
+forceByRace2024 <- sqf2024 %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "BLACK HISPANIC", "WHITE HISPANIC", "WHITE")) %>%
+  mutate(FORCE_FLAG = if_any(all_of(forces), ~ !is.na(.) & . != "(null)"),
+         FORCE_WEAPON_FLAG = if_any(all_of(weaponForces), ~ !is.na(.) & . != "(null)"),
+         PHYSICAL_FORCE_OTHER_FLAG = recode(PHYSICAL_FORCE_OTHER_FLAG,
+                                                       "Y" = TRUE,
+                                                       "N" = FALSE,
+                                                       .default = NA)
+         )
+
+# calculate counts and proportions of use of force
+forceByRaceTotals2024 <- forceByRace2024 %>%
+  group_by(SUSPECT_RACE_DESCRIPTION, FORCE_FLAG, FORCE_WEAPON_FLAG, PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG, PHYSICAL_FORCE_OTHER_FLAG) %>%
+  count() %>%
+  ungroup() %>%
+  mutate(prop = round(n / sum(n), 3),
+         cell = paste0(n, " (", prop, ")"))
+
+forceByRaceTable2024 <- forceByRaceTotals2024 %>%
+  select(FORCE_FLAG, FORCE_WEAPON_FLAG, PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG,
+         PHYSICAL_FORCE_OTHER_FLAG, SUSPECT_RACE_DESCRIPTION, cell) %>%
+  pivot_wider(
+    names_from = SUSPECT_RACE_DESCRIPTION,
+    values_from = cell,
+    id_cols = c(FORCE_FLAG, FORCE_WEAPON_FLAG, PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG, PHYSICAL_FORCE_OTHER_FLAG)
+  )
+
+
+```
+
+# Analysis of Observed Suspect Behavior
+
+```{r suspect demeanor description sentiment analysis}
+
+library(tidytext)
+library(textdata)
+
+# unnest demeanor description, such that the sentiment analysis can work
+# https://juliasilge.github.io/tidytext/reference/unnest_tokens.html
+# need to figure out a way to make sure the token that's selected isn't erroneous (i.e. "officer", "and", "to", etc.)
+stopDemeanorDesc2024 <- sqf2024 %>%
+  select(STOP_ID, SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX, DEMEANOR_OF_PERSON_STOPPED, FRISKED_FLAG, SEARCHED_FLAG) %>%
+  unnest_tokens(DEMEANOR, DEMEANOR_OF_PERSON_STOPPED, token = "words")
+
+# get sentiments from AFINN datasets
+# The AFINN lexicon assigns words with a score that runs between -5 and 5, with negative scores indicating negative sentiment and positive scores indicating positive sentiment.
+
+# calculate sentiment score of officer's description of subject's demeanor for each sto
+stopDemeanorSentiment <- stopDemeanorDesc2024 %>%
+  full_join(get_sentiments("afinn"), join_by(DEMEANOR == word)) %>% # parse through sentiment data set to find and token
+  group_by(SUSPECT_RACE_DESCRIPTION) %>% # group by race
+  drop_na(value) %>% # drop observations with no sentiment score
+  summarize(mean = round(mean(value), 3)) # get mean score for each racial group
+
+```
+
+# Physical Characteristics
+
+```{r}
+
+sqf2024 %>%
+  select(SUSPECT_REPORTED_AGE, SUSPECT_HEIGHT, SUSPECT_WEIGHT) %>%
+  mutate(across(everything(), as.integer)) %>%
+  pivot_longer(everything(), names_to = "name", values_to = "value") %>%
+  filter( !is.na(value), value != 0,
+        (name != "SUSPECT_HEIGHT" | value > 4.10),
+        (name != "SUSPECT_WEIGHT" | value > 60),
+        (name != "SUSPECT_REPORTED_AGE" | value > 1))  %>% 
+  group_by(name) %>%
+  summarise( Min = min(value, na.rm = TRUE), Mean = mean(value, na.rm = TRUE), 
+             Max = max(value, na.rm = TRUE), Sd = sd(value, na.rm = TRUE)
+  )
+
+```
+
+# 
