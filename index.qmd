@@ -583,7 +583,7 @@ library(textdata)
 
 # unnest demeanor description, such that the sentiment analysis can work
 # https://juliasilge.github.io/tidytext/reference/unnest_tokens.html
-# need to figure out a way to make sure the token that's selected isn't erroneous (i.e. "officer", "and", "to", etc.)
+# need to figure out a way to make sure the token that's selected isn't erroneous/unrelated to demeanor (i.e. "officer", "and", "to", etc.)
 stopDemeanorDesc2024 <- sqf2024 %>%
   select(STOP_ID, SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX, DEMEANOR_OF_PERSON_STOPPED, FRISKED_FLAG, SEARCHED_FLAG) %>%
   unnest_tokens(DEMEANOR, DEMEANOR_OF_PERSON_STOPPED, token = "words")
@@ -620,74 +620,6 @@ sqf2024 %>%
 ```
 
 
-```{r}
-
-library(sf)
-library(terra)
-library(leaflet)
-
-# Step 1: Convert your sf object and reproject to a CRS in meters (e.g., EPSG:3857)
-precincts <- st_as_sf(nypd_sf, wkt = "geometry", crs = 4326)
-precincts_proj <- st_transform(precincts, 3857)  # Web Mercator
-
-# Step 2: Convert to SpatVector and create a fine-resolution raster
-precincts_vect <- vect(precincts_proj)
-r_template <- rast(precincts_vect, resolution = 50)  # 50m grid (use 10 for 10m)
-
-# Step 3: Rasterize
-precincts_vect$popPropBlack <- as.numeric(precincts_vect$popPropBlack)
-r_pop <- rasterize(precincts_vect, r_template, field = "popPropBlack")
-
-# Step 4: Reproject raster back to WGS84 for Leaflet (required)
-r_pop_latlon <- project(r_pop, "EPSG:4326")
-
-# Step 5: Color palette and leaflet
-pal <- colorNumeric("Blues", domain = values(r_pop_latlon), na.color = "transparent")
-
-leaflet() %>%
-  addTiles() %>%
-  addRasterImage(r_pop_latlon, colors = pal, opacity = 0.7) %>%
-  addLegend(pal = pal, values = values(r_pop_latlon), title = "Proportion Black")
-
-```
-
-```{r}
-
-# Load required libraries
-library(terra)
-library(sf)
-
-# STEP 1: Clean and filter stop data to NYC bounds (EPSG:2263)
-sqf_clean <- sqf2024[
-  !is.na(sqf2024$STOP_LOCATION_X) & !is.na(sqf2024$STOP_LOCATION_Y) &
-  sqf2024$STOP_LOCATION_X >= 970000 & sqf2024$STOP_LOCATION_X <= 1060000 &
-  sqf2024$STOP_LOCATION_Y >= 180000 & sqf2024$STOP_LOCATION_Y <= 270000,
-]
-
-# STEP 2: Convert stop data to SpatVector and assign CRS
-v <- vect(sqf_clean, geom = c("STOP_LOCATION_X", "STOP_LOCATION_Y"), crs = "EPSG:2263")
-
-# STEP 3: Create raster grid using extent of filtered points
-r <- rast(ext(v), resolution = 1000, crs = "EPSG:2263")
-
-# STEP 4: Rasterize the stop points (count per cell)
-r_counts <- rasterize(v, r, fun = "length", background = 0)
-
-# STEP 5: Convert and project NYPD shapefile to match raster CRS
-nypd_vect <- vect(nypd_sf)
-nypd_vect <- project(nypd_vect, "EPSG:2263")
-ß
-# 1. Crop raster to extent of the shapefile (faster processing)
-r_cropped <- crop(r_counts, nypd_vect)
-
-# 2. Mask raster to exact shape boundary
-r_masked <- mask(r_cropped, nypd_vect)
-
-# Plot
-plot(r_masked, main = "Stop Concentration (NYC)")
-lines(nypd_vect, col = "black", lwd = 1)
-
-```
 
 
 
