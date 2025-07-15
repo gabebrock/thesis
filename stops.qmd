@@ -121,16 +121,11 @@ nycMAP <- ggplot(nyc_sf) +
   scale_color_viridis_d(option = "B") +
   labs(color = "Suspect Race or Ethnicity") +
   theme(
-    legend.key = element_rect(fill = NA, color = NA),         # remove default key background
-    legend.key.size = unit(0.5, "cm"),                         # shrink key size
-    legend.text = element_text(size = 7),                      # smaller labels
-    legend.title = element_text(size = 8),                     # smaller title
-    legend.spacing.y = unit(0.2, "cm"),                        # tighter vertical spacing
-    legend.box.spacing = unit(0.3, "cm")                       # spacing around the legend box
+    legend.key = element_rect(fill = NA, color = NA), legend.key.size = unit(0.5, "cm"),                        
+    legend.title = element_text(size = 8), legend.text = element_text(size = 7),                     
+    legend.spacing.y = unit(0.2, "cm"), legend.box.spacing = unit(0.3, "cm")                      
   ) +
-  guides(color = guide_legend(override.aes = list(shape = 15, size = 4)))  # squares
-print(nycMAP)
-
+  guides(color = guide_legend(override.aes = list(shape = 15, size = 4)))
 
 ```
 
@@ -496,6 +491,44 @@ pctBlack = nypdCensus2020Races %>%
 # average percent hispanic of each precinct
 pctHispanic = nypdCensus2020Races %>%
   summarize(avg = round(mean(P2_002N/P1_001N), 4))
+
+```
+
+```{r}
+
+# Calculate disparity
+nypd_sf$stopDisparity <- nypd_sf$propStops - nypd_sf$propPopBlack
+
+# Fit linear model
+model <- lm(propStops ~ propPopBlack, data = nypd_sf)
+r2 <- summary(model)$r.squared
+r2_label <- paste0("R² = ", round(r2, 3))
+
+# Create plot
+ggplot(nypd_sf, aes(x = propPopBlack, y = propStops)) +
+  geom_point(aes(size = totalStops, color = stopDisparity)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dotted") +
+  annotate("text", x = 0.05, y = max(nypd_sf$propStops), label = r2_label, hjust = 0, size = 4) +
+  scale_color_gradient2(low = "green", mid = "green", high = "red", midpoint = 0) +
+  labs(
+    title = "Proportion of Black Stops vs. Black Population",
+    x = "Proportion of Black Population",
+    y = "Proportion of Stops Involving Black Individuals",
+    color = "Disparity",
+    size = "Total Stops"
+  ) +
+  theme_minimal()
+
+
+ggplot(nypd_sf) +
+  geom_sf(aes(fill = stopDisparity)) +
+  scale_fill_viridis_c() +
+  labs(
+    title = "Geographic Distribution of Stop Disparity",
+    fill = "Stop Disparity"
+  ) +
+  theme_minimal()
 
 ```
 
