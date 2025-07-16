@@ -1,6 +1,9 @@
 ---
-title: "stops"
-output: html_document
+title: "Index"
+author: Gabriel Brock
+format:
+  html:
+    code-fold: true
 ---
 
 ```{r prepping doc and data}
@@ -602,7 +605,7 @@ stopDemeanorSentiment <- stopDemeanorDesc2024 %>%
 
 # Physical Characteristics
 
-```{r}
+```{r age-height-weight of suspects}
 
 sqf2024 %>%
   select(SUSPECT_REPORTED_AGE, SUSPECT_HEIGHT, SUSPECT_WEIGHT) %>%
@@ -619,6 +622,20 @@ sqf2024 %>%
 
 ```
 
+# Looking at Camera Data
+
+```{r}
+
+cameraIntersectionAggregate <- read_csv("amnesty/amnesty-data/counts_per_intersections.csv", 
+                              col_types = cols(Lat = col_double(), 
+                                               Long = col_double(), 
+                                               ImageDate = col_date(format = "%Y-%m"))) %>%
+  mutate(
+    Lat = format(Lat, scientific = FALSE, digits = 10),
+    Long = format(Long, scientific = FALSE, digits = 10)
+  )
+
+```
 
 
 
