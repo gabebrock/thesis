@@ -4,12 +4,15 @@ author: Gabriel Brock
 format:
   html:
     code-fold: true
+execute:
+  echo: false
+  warning: false
 ---
 
 ```{r prepping doc and data}
 
 # list of required packages
-required_packages <- c("tidyverse", "readxl", "mapview", "sf", "tinytext", "textdata", "kableExtra")
+required_packages <- c("tidyverse", "readxl", "mapview", "sf", "tinytext", "textdata", "kableExtra", "rJava", "xlsx")
 
 # initialize server that hosts a copy of the CRAN (Comprehensive R Archive Network) repository
 # which contains R packages, documentation, and software.
@@ -29,6 +32,13 @@ library(readxl)
 library(mapview)
 library(sf)
 library(kableExtra)
+library(rJava)
+library(xlsx)
+library(scales)
+library(viridis)
+library(grid)
+library(gridExtra)
+library(cowplot)
 
 options(digits=2)
 
@@ -43,13 +53,53 @@ sqf2024 <- sqf2024 %>%
          STOP_LOCATION_Y = as.numeric(STOP_LOCATION_Y)) %>%
   filter(!is.na(SUSPECT_RACE_DESCRIPTION))
 
+# count total number of 2024 stops for calculations
 total_obs <- nrow(sqf2024)
 
-BWH <- c("BLACK", "WHITE", "BLACK HISPANIC", "WHITE HISPANIC")
+# race-blind treat all hispanic stops
+sqf2024 <- sqf2024 %>%
+  mutate(SUSPECT_RACE_DESCRIPTION = case_when(SUSPECT_RACE_DESCRIPTION %in% c("BLACK HISPANIC", "WHITE HISPANIC") ~ "HISPANIC",
+                                              TRUE ~ SUSPECT_RACE_DESCRIPTION))
+
+# quick text for Black, White, and Hispanic stops
+BWH <- c("BLACK", "WHITE", "HISPANIC")
+
+sqf2024 <- sqf2024 %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH)
+
 
 ```
 
 # Descriptive analysis of Stops
+
+```{r stops over time}
+
+# load yearly aggregates for stop outcomes (2002-2024)
+stopsOverTime <- read_csv("r-data/nypd-stop/stops_2002_2024.csv")
+
+# time series for all stop outcomes
+stopsTrend <- stopsOverTime %>%
+  pivot_longer(cols = c(totalStops, noOutcome, arrestSummons),
+               names_to = "Outcome", values_to = "Count") %>%
+  ggplot(aes(x = year, y = Count, fill = Outcome)) +
+  geom_area(alpha = 0.9, color = "black") +
+  scale_fill_viridis_d(option = "viridis", end = 0.9) +
+  geom_vline(xintercept = 2002, linetype = "dashed") +
+  geom_vline(xintercept = 2014, linetype = "dashed") +
+  geom_vline(xintercept = 2021, linetype = "dashed") +
+  labs(
+    title = "Stop-and-Frisk Outcomes Over Time",
+    x = "Year",
+    y = "Number of Stops",
+    fill = "Outcome"
+  ) +
+  theme(legend.position = "bottom")
+stopsTrend
+
+# save time series to image file
+ggsave(filename = "images/stopsTrend.svg", plot = stopsTrend, width = 6.5, height = 4, units = "in")
+
+```
 
 ```{r quick stop analysis}
 
@@ -65,6 +115,7 @@ stopsByRace <- sqf2024 %>%
 
 ```{r summary statistics}
 
+# calculate summary statistics
 sqf2024summary <- sqf2024 %>%
   summarize(
     # count/percent male
@@ -76,7 +127,7 @@ sqf2024summary <- sqf2024 %>%
     percent_black = count_black / total_obs,
     
     # count/percent hispanic
-    count_hispanic = sum(SUSPECT_RACE_DESCRIPTION %in% c("BLACK HISPANIC", "WHITE HISPANIC"), na.rm = TRUE),
+    count_hispanic = sum(SUSPECT_RACE_DESCRIPTION == "HISPANIC", na.rm = TRUE),
     percent_hispanic = count_hispanic / total_obs,
     
     # count/percent white
@@ -220,12 +271,12 @@ nycMAP <- ggplot(nyc_sf) +
     alpha = 0.4) +         
   coord_sf(xlim = c(-74.3, -73.65), ylim = c(40.48, 40.95)) +
   theme_void() +
-  scale_color_viridis_d(option = "B") +
+  scale_color_viridis_d(option = "viridis") +
   labs(color = "Suspect Race or Ethnicity") +
   theme(
-    legend.key = element_rect(fill = NA, color = NA), legend.key.size = unit(0.5, "cm"),                        
+    legend.key = element_rect(fill = NA, color = NA), legend.key.size = unit(1.0, "cm"),                        
     legend.title = element_text(size = 8), legend.text = element_text(size = 7),                     
-    legend.spacing.y = unit(0.2, "cm"), legend.box.spacing = unit(0.3, "cm")                      
+    legend.spacing.y = unit(0.2, "cm"), legend.box.spacing = unit(0.3, "cm")
   ) +
   guides(color = guide_legend(override.aes = list(shape = 15, size = 4)))
 
@@ -261,21 +312,21 @@ nypdMAP <- ggplot(nypd_sf) +
 
 ```
 
-### Precinct 2020 Census Data
+### Precinct 2020 nyc-census Data
 
-```{r load nypd precinct 2020 census data}
+```{r load nypd precinct 2020 nyc-census data}
 
-nypdCensus2020 <- read_csv("r-data/census/nyc_precinct_2020pop.csv")
+nypdnyc_census2020 <- read_csv("r-data/nyc-census/nyc_precinct_2020pop.csv")
 
 # format `Precinct` to match variable name in sqf dfs
-nypdCensus2020$precinct <- sprintf("%03d", as.integer(nypdCensus2020$precinct))
+nypdnyc_census2020$precinct <- sprintf("%03d", as.integer(nypdnyc_census2020$precinct))
 
-# census (only one race totals and total 2+ races)
-nypdCensus2020Races <- nypdCensus2020 %>%
+# nyc-census (only one race totals and total 2+ races)
+nypdnyc_census2020Races <- nypdnyc_census2020 %>%
   select(precinct, P1_001N, P1_002N, P1_003N, P1_004N, P1_005N, P1_006N, P1_007N, P1_008N, P1_009N, P2_002N, P2_003N)
 
 # precincts, proportion of black residents
-nypdCensus2020Black <- nypdCensus2020 %>%
+nypdnyc_census2020Black <- nypdnyc_census2020 %>%
   select(precinct, P1_001N, P1_004N) %>%
   mutate(prop = round(P1_004N / P1_001N, 2))
 
@@ -283,11 +334,11 @@ nypdCensus2020Black <- nypdCensus2020 %>%
 
 ```{r heat map of black NYC residents, by nypd precinct}
 
-# join census data to spatial precinct data
+# join nyc-census data to spatial precinct data
 nypd_sf <- nypd_sf %>%
   mutate(Precinct = as.character(Precinct)) %>%
   left_join(
-    nypdCensus2020Black %>%
+    nypdnyc_census2020Black %>%
       mutate(precinct = as.character(precinct)),
     by = c("Precinct" = "precinct")
   )
@@ -302,7 +353,11 @@ blackHeatMap <- ggplot(nypd_sf) +
     na.value = "gray90"
   ) +
   theme_void() +
-  labs(title = "Proportion of Black NYC Residents, by NYPD Precinct")
+  theme(legend.position = "bottom")
+
+# +
+#  labs(title = "Proportion of Black NYC Residents, by NYPD Precinct")
+
 
 ```
 
@@ -316,7 +371,9 @@ blackHeatMap <- ggplot(nypd_sf) +
 # load counts for seven major felony offenses, by precinct
 # murder and non-negligent manslaughter, forcible rape, robbery, felony assault, burglary, grand larceny, and grand larceny auto
 precinctFelonyRates <- read_excel("r-data/nypd-crime/major-felony-counts-precinct.xlsx", na = "(null)") %>%
-  filter(CRIME != "TOTAL SEVEN MAJOR FELONY OFFENSES")
+  filter(CRIME != "TOTAL SEVEN MAJOR FELONY OFFENSES",
+         PCT != "DOC") %>%
+  mutate(PCT = as.numeric(PCT))
 
 # log-transforming felony crimes
 precinctFelonyRatesLog <- precinctFelonyRates
@@ -324,7 +381,9 @@ precinctFelonyRatesLog[, 3:17] <- log(precinctFelonyRates[3:17])
 
 # load counts for misdemeanor offenses, by precinct
 precinctMisdomRates <- read_excel("r-data/nypd-crime/misdemeanor-counts-by-precinct.xlsx", na = "(null)") %>%
-  filter(CRIME != "TOTAL MISDEMEANOR OFFENSES")
+  filter(CRIME != "TOTAL MISDEMEANOR OFFENSES",
+         PCT != "DOC") %>%
+  mutate(PCT = as.numeric(PCT))
 
 # log-transforming misdemeanor crimes
 precinctMisdomRatesLog <- precinctMisdomRates
@@ -379,7 +438,7 @@ Still I should considered alternative normalization methods, as **the log transf
 totalStops <- sqf2024 %>% group_by(STOP_LOCATION_PRECINCT) %>%
   summarise(totalStops = n())
 
-# census (only one race totals and total 2+ races)
+# nyc-census (only one race totals and total 2+ races)
 sqf2024raceTotals <- sqf2024 %>%
   select(STOP_ID, STOP_LOCATION_PRECINCT, SUSPECT_RACE_DESCRIPTION) %>%
   group_by(STOP_LOCATION_PRECINCT) %>%
@@ -394,7 +453,7 @@ sqf2024raceBlack <- sqf2024raceTotals %>%
   filter(SUSPECT_RACE_DESCRIPTION == "BLACK") %>%
   select(!SUSPECT_RACE_DESCRIPTION)
 
-# join census data to spatial precinct data
+# join nyc-census data to spatial precinct data
 nypd_sf <- nypd_sf %>%
   left_join(sqf2024raceBlack, by = c("Precinct" = "STOP_LOCATION_PRECINCT"))  %>%
   left_join(totalStops, by = c("Precinct" = "STOP_LOCATION_PRECINCT"))
@@ -416,10 +475,10 @@ blackStopHeatMap <- ggplot(nypd_sf) +
     na.value = "gray90"
   ) +
   theme_void() +
-  labs(title = "Proportion of Black NYC Residents, by NYPD Precinct")
+  theme(legend.position = "bottom")
+  # labs(title = "Proportion of Black NYC Residents, by NYPD Precinct")
 
-print(blackHeatMap)
-print(blackStopHeatMap)
+plot_grid(blackHeatMap, blackStopHeatMap)
 
 ```
 
@@ -443,7 +502,7 @@ ggplot(nypd_sf, aes(x = popPropBlack, y = stopPropBlack)) +
   annotate("text", x = 0.05, y = max(nypd_sf$stopPropBlack), label = r2_label, hjust = 0, size = 4) +
   scale_color_viridis_c() +
   labs(
-    title = "Proportion of Black Stops vs. Black Population",
+    # title = "Proportion of Black Stops vs. Black Population",
     x = "Proportion of Black Population",
     y = "Proportion of Stops Involving Black Individuals",
     color = "Disparity",
@@ -455,6 +514,32 @@ chisq.test(
   x = c(nypd_sf$stopsBlack[1], nypd_sf$totalStops[1] - nypd_sf$stopsBlack[1]),
   p = c(nypd_sf$popPropBlack[1], 1 - nypd_sf$popPropBlack[1])
 )
+```
+
+```{r}
+
+# slice 10 most stop disparate precincts
+top10disparatePrecincts <- nypd_sf %>%
+  arrange(desc(stopDisparity)) %>%
+  slice_head(n = 10) %>%
+  select(!c('Shape__Area', 'Shape__Length', 'geometry'))
+
+# slice 10 least stop disparate precincts
+bottom10disparatePrecincts <- nypd_sf %>%
+  arrange(stopDisparity) %>%
+  slice_head(n = 10) %>%
+  select(!c('Shape__Area', 'Shape__Length', 'geometry'))
+
+# find 10 most normal precincts by stop disparity
+median10disparatePrecincts <- nypd_sf %>%
+  arrange(abs(stopDisparity - median(stopDisparity, na.rm = TRUE))) %>%
+  slice_head(n = 10) %>%
+  select(!c('Shape__Area', 'Shape__Length', 'geometry'))
+
+```
+
+
+```{r}
 
 ggplot(nypd_sf) +
   geom_sf(aes(fill = stopDisparity)) +
@@ -467,6 +552,7 @@ ggplot(nypd_sf) +
 
 ```
 
+
 ## Frisks
 
 ```{r frisks by race, gender}
@@ -475,7 +561,7 @@ ggplot(nypd_sf) +
 frisksByRace2024 <- sqf2024 %>%
   group_by(FRISKED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) %>%
   drop_na(SUSPECT_SEX) %>%
-  filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "BLACK HISPANIC", "WHITE HISPANIC", "WHITE")) %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "HISPANIC", "WHITE")) %>%
   count() %>%
   ungroup() %>%
   mutate(prop = round(n / sum(n), 2))
@@ -497,7 +583,8 @@ frisksByRace2024 <- frisksByRace2024 %>%
   mutate(cell = paste0(n, " (", scales::percent(n / sum(n), accuracy = 0.1), " of total stops)")) %>%
   select(FRISKED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION, cell) %>%
   pivot_wider(names_from = c(SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX), values_from = cell)
-frisksByRace2024
+
+frisksByRace2024 %>% kbl()
 
 ```
 
@@ -509,7 +596,7 @@ frisksByRace2024
 searchesByRace2024 <- sqf2024 %>%
   group_by(SEARCHED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION) %>%
   drop_na(SUSPECT_SEX) %>%
-  filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "BLACK HISPANIC", "WHITE HISPANIC", "WHITE")) %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "HISPANIC", "WHITE")) %>%
   count() %>%
   ungroup() %>%
   mutate(prop = round(n / sum(n), 2))
@@ -522,6 +609,8 @@ searchesByRace2024 <- searchesByRace2024 %>%
   select(SEARCHED_FLAG, SUSPECT_SEX, SUSPECT_RACE_DESCRIPTION, cell) %>%
   pivot_wider(names_from = c(SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX),
               values_from = cell)
+
+searchesByRace2024 %>% kbl()
 
 ```
 
@@ -548,7 +637,7 @@ forces <- c("PHYSICAL_FORCE_CEW_FLAG", "PHYSICAL_FORCE_DRAW_POINT_FIREARM_FLAG",
 
 # create a new variable FORCE_FLAG if at least one FORCE variable is not (NULL)
 forceByRace2024 <- sqf2024 %>%
-  filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "BLACK HISPANIC", "WHITE HISPANIC", "WHITE")) %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "HISPANIC", "WHITE")) %>%
   mutate(FORCE_FLAG = if_any(all_of(forces), ~ !is.na(.) & . != "(null)"),
          FORCE_WEAPON_FLAG = if_any(all_of(weaponForces), ~ !is.na(.) & . != "(null)"),
          PHYSICAL_FORCE_OTHER_FLAG = recode(PHYSICAL_FORCE_OTHER_FLAG,
@@ -574,6 +663,7 @@ forceByRaceTable2024 <- forceByRaceTotals2024 %>%
     id_cols = c(FORCE_FLAG, FORCE_WEAPON_FLAG, PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG, PHYSICAL_FORCE_OTHER_FLAG)
   )
 
+forceByRaceTotals2024 %>% kbl()
 
 ```
 
@@ -618,7 +708,7 @@ sqf2024 %>%
   group_by(name) %>%
   summarise( Min = min(value, na.rm = TRUE), Mean = mean(value, na.rm = TRUE), 
              Max = max(value, na.rm = TRUE), Sd = sd(value, na.rm = TRUE)
-  )
+  ) %>% kbl()
 
 ```
 
@@ -639,5 +729,85 @@ cameraIntersectionAggregate <- read_csv("amnesty/amnesty-data/counts_per_interse
 
 
 
+```{r}
+
+sqf2024 %>%
+  filter(STOP_LOCATION_PRECINCT %in% top10disparatePrecincts$Precinct) %>%
+  group_by(SUSPECT_RACE_DESCRIPTION, SUSPECT_ARRESTED_FLAG) %>%
+  count()
 
 
+%>%
+  group_by(STOP_WAS_INITIATED, SUSPECT_RACE_DESCRIPTION, SUSPECT_ARRESTED_FLAG) %>%
+  count()
+
+```
+
+```{r}
+
+sqf2024 %>%
+  filter(STOP_LOCATION_PRECINCT %in% top10disparatePrecincts$Precinct) %>%
+  group_by(SUSPECT_RACE_DESCRIPTION) %>%
+  select(STOP_LOCATION_PRECINCT, STOP_WAS_INITIATED, SUSPECT_RACE_DESCRIPTION, FRISKED_FLAG, SEARCHED_FLAG, SUSPECT_ARRESTED_FLAG, SUMMONS_ISSUED_FLAG, DEMEANOR_OF_PERSON_STOPPED)
+
+```
+
+```{r}
+
+# days with the most activity, by stops per race
+# Testing out the theory that CompStat has an impact on officer behavior. 
+# The concentration patterns are not identical between ethnicities. Black people are stopped the most on Tuesdays, the day before CompStat meetings, followed by Th, Fr, and Saturday.
+
+sqf2024 %>% # all stops in 2024
+  group_by(SUSPECT_RACE_DESCRIPTION, DAY2, MONTH2) %>% 
+  count() %>% # count number of Black stops, for each weekday, for each month
+  ungroup(SUSPECT_RACE_DESCRIPTION) %>%
+  mutate(prop = n / sum(n)) %>% # calculate the Black proportion of all of the stops for that day
+  filter(SUSPECT_RACE_DESCRIPTION == "BLACK") %>% # just show black stops
+  arrange(desc(prop)) %>% # arrange days based on highest proportion of all stops
+  head(n = 25) %>% # chop top 25 days out the year
+  ungroup(MONTH2) %>% 
+  count(DAY2) %>% # count the number of days in the top 25
+  arrange(desc(n)) # arrange descending
+
+sqf2024 %>%
+  group_by(SUSPECT_RACE_DESCRIPTION, DAY2, MONTH2) %>%
+  count() %>%
+  ungroup(SUSPECT_RACE_DESCRIPTION) %>%
+  mutate(prop = n / sum(n)) %>%
+  filter(SUSPECT_RACE_DESCRIPTION == "HISPANIC") %>%
+  arrange(desc(prop)) %>%
+  head(n = 25) %>%
+  ungroup(MONTH2) %>%
+  count(DAY2) %>%
+  arrange(desc(n))
+
+sqf2024 %>%
+  group_by(SUSPECT_RACE_DESCRIPTION, DAY2, MONTH2) %>%
+  count() %>%
+  ungroup(SUSPECT_RACE_DESCRIPTION) %>%
+  mutate(prop = n / sum(n)) %>%
+  filter(SUSPECT_RACE_DESCRIPTION == "WHITE") %>%
+  arrange(desc(prop)) %>%
+  head(n = 25) %>%
+  ungroup(MONTH2) %>%
+  count(DAY2) %>%
+  arrange(desc(n))
+  
+
+```
+
+```{r}
+
+sqf2024 %>%
+  ggplot(aes(x = STOP_FRISK_DATE)) +
+  geom_line(stat = "count") + 
+  geom_vline(
+    xintercept = sqf2024$STOP_FRISK_DATE[sqf2024$DAY2 == "Wednesday"],
+    linetype = "dotted", # Optional: use a dashed line for clarity
+    color = "blue",      # Optional: set a custom color
+    alpha = 0.5          # Optional: make the lines semi-transparent
+  ) +
+  facet_wrap(~ SUSPECT_RACE_DESCRIPTION, nrow = 3)
+
+```
