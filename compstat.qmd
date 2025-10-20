@@ -1,0 +1,179 @@
+---
+title: "compstat"
+format: html
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+```{r}
+
+library(tidyverse)
+library(readxl)
+
+```
+
+```{r}
+
+# load 2024 sqf data
+# treating (null) values as NA values, for simplicity in the analysis. note that where NA appears in the data, it is because the officer there was no data for that fields not that, it was not applicable to the situation.
+sqf2024 <- read_excel("r-data/nypd-stop/sqf-2024.xlsx", na = "(null)")
+sqf2023 <- read_excel("r-data/nypd-stop/sqf-2023.xlsx", na = "(null)")
+sqf2022 <- read_excel("r-data/nypd-stop/sqf-2022.xlsx", na = "(null)")
+sqf2021 <- read_excel("r-data/nypd-stop/sqf-2021.xlsx", na = "(null)")
+sqf2020 <- read_excel("r-data/nypd-stop/sqf-2020.xlsx", na = "(null)")
+
+sqf_years <- list(sqf2020, sqf2021, sqf2022, sqf2023, sqf2024)
+
+sqf_hist <- sqf_years %>%
+  lapply(function(df) df %>%
+           mutate(
+             STOP_FRISK_DATE = as.Date(STOP_FRISK_DATE),
+             STOP_FRISK_TIME = as.character(STOP_FRISK_TIME),
+             ISSUING_OFFICER_COMMAND_CODE = as.character(ISSUING_OFFICER_COMMAND_CODE),
+             SUPERVISING_OFFICER_COMMAND_CODE = as.character(SUPERVISING_OFFICER_COMMAND_CODE),
+             SUSPECT_REPORTED_AGE = as.double(SUSPECT_REPORTED_AGE),
+             SUSPECT_WEIGHT = as.double(SUSPECT_WEIGHT),
+             SUSPECT_HEIGHT = as.double(SUSPECT_HEIGHT),
+             STOP_LOCATION_PRECINCT = as.double(STOP_LOCATION_PRECINCT),
+             STOP_LOCATION_X = as.double(STOP_LOCATION_X),
+             STOP_LOCATION_Y = as.double(STOP_LOCATION_Y)
+           )) %>%
+  bind_rows()
+
+sqf_hist <- bind_rows(sqf2020, sqf2021, sqf2022, sqf2023, sqf2024)
+
+# quick text for Black, White, and Hispanic stops
+BWH <- c("BLACK", "WHITE", "HISPANIC")
+
+sqf_hist <- sqf_hist %>%
+  filter(!is.na(SUSPECT_RACE_DESCRIPTION)) %>%
+  mutate(SUSPECT_RACE_DESCRIPTION = case_when(SUSPECT_RACE_DESCRIPTION %in% 
+                                              c("BLACK HISPANIC", "WHITE HISPANIC") ~ "HISPANIC",
+                                              TRUE ~ SUSPECT_RACE_DESCRIPTION)) %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH)
+
+```
+
+```{r}
+
+# have months sort chronologically, not alphabetically
+sqf_hist <- sqf_hist %>%
+  mutate(MONTH2 = factor(MONTH2,
+                        levels = month.name,
+                        ordered = TRUE))
+
+# count stop totals per month, per precinct
+sqf_hist %>%
+  group_by(STOP_LOCATION_PRECINCT, MONTH2) %>%
+  count() %>%
+  pivot_wider(names_from = MONTH2,
+              values_from = n)
+
+```
+
+```{r}
+
+complaint_hist <- read_csv("r-data/nypd-crime/NYPD_Complaint_Data_Historic.csv", 
+                            col_types = cols(CMPLNT_FR_DT = col_date(format = "%m/%d/%Y"), 
+                                CMPLNT_FR_TM = col_time(format = "%H:%M:%S"), 
+                                CMPLNT_TO_DT = col_date(format = "%m/%d/%Y"), 
+                                CMPLNT_TO_TM = col_time(format = "%H:%M:%S")))
+
+complaint_hist <- complaint_hist %>%
+  filter(CMPLNT_FR_DT > as.Date("2019-12-31"))
+
+```
+
+```{r}
+
+complaint_hist %>% 
+  mutate(month = month(CMPLNT_FR_DT, label = TRUE, abbr = TRUE)) %>%
+  group_by(ADDR_PCT_CD, month) %>%
+  count() %>%
+  pivot_wider(names_from = month,
+              values_from = n)
+
+```
+
+```{r}
+
+complaint_totals <- complaint_hist %>%
+  group_by(date = lubridate::floor_date(CMPLNT_FR_DT, "day"),
+           ADDR_PCT_CD) %>%
+  count() %>%
+  ungroup(date) %>%
+  mutate(total = cumsum(n))
+  
+complaint_hist %>%
+  filter(CMPLNT_FR_DT >= as.Date("2024-01-01"),
+         SUSP_RACE == "BLACK") %>%
+   group_by(date = lubridate::floor_date(CMPLNT_FR_DT, "day"),
+           ADDR_PCT_CD) %>%
+  count() %>%
+  ungroup() %>%
+  group_by(ADDR_PCT_CD) %>%
+  mutate(total = cumsum(n)) %>%
+  ggplot(aes(x = date, y = total,
+             group = ADDR_PCT_CD)) +
+  geom_step() +
+  theme(legend.position = "none")
+
+```
+
+```{r}
+
+nypd_shootings <- read_csv("r-data/nypd-crime/NYPD_Shootings_Data__Historic.csv")
+
+```
+
+**Main Null Hypotheses**
+
+-   $H_0$ (Primary):
+
+    -   There is no difference in the search/frisk rate of against Black
+        citizens before and after shootings by Black suspects.
+
+-   $H_0$: $\Delta \text{Searches}_{Black,\, after-before} = 0$
+
+    -   If this null hypothesis is rejected (i.e., a statistically
+        significant increase is observed), it indicates that such events
+        cause a rise in discriminatory use of force.
+
+⸻
+
+$H_0$ (Race-Specificity):
+
+The change in use of force after the shootings does not differ by
+suspect race of the event.
+
+$H_0$:
+$\Delta \text{Search}\space{Black\,suspect} = \Delta \text{Search}\space{White/Hispanic\,suspect}$
+
+Rejecting this null supports Legewie’s argument that only events
+involving Black suspects trigger racialized responses — not violent
+events in general.
+
+⸻
+
+-   $H_0$ (Group Comparison): There is no difference across racial
+    groups in how the use of force changes after the same event.
+
+-   $H_0$:
+
+    -   $\Delta \text{Use of Force}\space{Blacks} = \Delta \text{Use of Force}\space{Whites/Hispanics}$
+
+    -   Rejecting this null means the event leads to race-specific
+        effects, consistent with racial bias.
+
+⸻
+
+**Secondary / Robustness Null Hypotheses** - *Placebo tests*:
+
+-   $H_0$:There is no change in use of force around fictitious
+    (nonexistent) event dates.
+    -   Confirms that the observed effects are due to the real events,
+        not random variation.
+
+*Alternative suspect races*: - $H_0$: Shootings by White or Hispanic
+suspects have no effect on use of force against any racial group.
