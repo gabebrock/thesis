@@ -1,0 +1,41 @@
+---
+title: "descriptive"
+format: html
+---
+
+```{r setup, include=FALSE}
+
+if (!exists(".setup_complete") || !.setup_complete) {
+      source("setup.R")
+    } else {
+      message("setup.R has already been run.")
+    }
+
+```
+
+```{r quick stop analysis}
+
+# stop breakdown, by race and arrest rate
+stopsByRace <- sqf_hist %>% 
+  filter(YEAR2 == 2024) %>%
+  group_by(SUSPECT_RACE_DESCRIPTION) %>%
+  count() %>%
+  ungroup()
+
+# racial proportion of overall stops
+stopsByRace <- stopsByRace %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# stops by race, including stops that resulted in an arrest
+stopsByRaceArrests <- sqf_hist %>%
+  filter(YEAR2 == 2024) %>%
+  group_by(SUSPECT_RACE_DESCRIPTION, SUSPECT_ARRESTED_FLAG) %>%
+  count() %>%
+  ungroup(SUSPECT_RACE_DESCRIPTION)
+
+# proportion of overall stops that result in arrest, by race
+stopsByRaceArrests <- stopsByRaceArrests %>%
+  mutate(prop = round(n / sum(n), 2))
+
+
+```
