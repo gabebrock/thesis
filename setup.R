@@ -23,6 +23,8 @@ library(sf)
 library(kableExtra)
 library(viridis)
 library(gridExtra)
+library(tidycensus)
+
 
 # load 2024 sqf data
 # treating (null) values as NA values, for simplicity in the analysis. note that where NA appears in the data, it is because the officer there was no data for that fields not that, it was not applicable to the situation.
