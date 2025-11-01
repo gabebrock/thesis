@@ -33,9 +33,6 @@ stopsByRaceArrests <- sqf_hist %>%
   count() %>%
   ungroup(SUSPECT_RACE_DESCRIPTION)
 
-# proportion of overall stops that result in arrest, by race
-stopsByRaceArrests <- stopsByRaceArrests %>%
-  mutate(prop = round(n / sum(n), 2))
 
 
 ```
