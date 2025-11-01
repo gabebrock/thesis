@@ -203,17 +203,56 @@ nypdMAP <- ggplot(nypd_sf) +
 
 ![](images/clipboard-1679408522.png)
 
-> “[The above] figure presents a map of the study area broken down by precinct and bolstered by areas of racial and ethnic dominance based on census figures indicating residential percentages greater than 70 percent for the Hispanic, non-Hispanic black, and non-Hispanic white populations.” ([Newberry, 2017, p. 313](zotero://select/library/items/3GQF23RV)) ([pdf](zotero://open-pdf/library/items/ZD4QYXA7?page=7&annotation=FVYBVE4H))
+> “\[The above\] figure presents a map of the study area broken down by precinct and bolstered by areas of racial and ethnic dominance based on census figures indicating residential percentages greater than 70 percent for the Hispanic, non-Hispanic black, and non-Hispanic white populations.” ([Newberry, 2017, p. 313](zotero://select/library/items/3GQF23RV)) ([pdf](zotero://open-pdf/library/items/ZD4QYXA7?page=7&annotation=FVYBVE4H))
 
 ```{r}
 
 # NYC Precinct Distribution
 # NYC map with Precincts and Boroughs
 # with Boro lines and precint overlays, including the number of the precinct
+pct_bounds <- ggplot() +
+    geom_sf(data = nypd_sf, fill = NA, color = "grey70", size = 0.8) +
+    geom_sf(data = nyc_sf, fill = NA, color = "black", linewidth = 0.3) + 
+    theme_void()
+
+pct_bounds + geom_sf_text(data = nypd_sf, aes(label = Precinct), size = 2, color = "blue")
+  
 
 # NYC Residential Dominance
-# NYC map with precint boundaries and Census Tracts
+# NYC map with precinct boundaries and Census Tracts
 # Color census tract wherein one BWH makes up 70 percent of the population
-
-
+p1 <- nyc_census2020_trc %>%
+  select(!c("american_indian_alone","asian_alone", "pacific_islander_alone", "population_one_race", "some_other_race_alone", "two_or_more_races")) %>%
+  mutate(
+    white_share = white_alone / total_population,
+    black_share = black_alone / total_population,
+    hisp_share  = hispanic_or_latino / total_population,
+    
+    prod_group = case_when(
+      white_share >= 0.7 ~ "Predominantly White",
+      black_share >= 0.7 ~ "Predominantly Black",
+      hisp_share  >= 0.7 ~ "Predominantly Hispanic",
+      TRUE ~ "No Predominant Group"
+    ))
+  
+p1 <- st_transform(p1, st_crs(nyc_sf))
+p1 <- st_intersection(p1, nyc_sf)
+  
+  p1 %>% ggplot() +
+  geom_sf(aes(fill = prod_group), color = "grey70", linewidth = 0.1) +
+  scale_fill_manual(
+    values = c(
+      "Predominantly White" = "greenyellow",
+      "Predominantly Black" = "dodgerblue",
+      "Predominantly Hispanic" = "darkorange",
+      "No Predominant Group" = "white"
+    ),
+    name = "Majority Group"
+  ) +
+  geom_sf(data = nyc_sf, fill = NA, color = "black", linewidth = 0.3) + 
+  labs(
+    title = "Target Groups: Residential Areas of Dominance",
+    caption = "Source: 2020 Decennial Census (PL 94-171)"
+  ) +
+  theme_void()
 ```
