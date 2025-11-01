@@ -71,6 +71,114 @@ print(sqfSummary)
 # 
 
 ```
+```{r}
+
+# total annual stops 2020-2024
+# overall number of recorded stops per year, need to eventually refactor with older data
+d1 <- sqf_hist %>%
+  filter(YEAR2 >= 2020) %>%
+  group_by(YEAR2) %>%
+  summarise(count = n()) %>%
+  ggplot(aes(x = YEAR2, y = count)) +
+  geom_area(fill = "steelblue", alpha = 0.6) +
+  geom_line(color = "steelblue") +
+  labs(
+    title = "Total Annual Stops: 2020 - 2024",
+    x = "Year",
+    y = "Stops"
+  ) +
+  geom_vline(aes(xintercept = 2022),
+             color="blue", linetype="dashed")
+  theme_minimal()
+
+# arrest conversions, BWH
+# calculates total stops, frisks, searches, and arrests by race
+# graphs proportion of stops that did NOT result in arrest.
+d2 <- sqf_hist %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
+  group_by(SUSPECT_RACE_DESCRIPTION) %>%
+  summarize(stops = n(),
+            frisk = sum(FRISKED_FLAG == "Y", na.rm = TRUE),
+            search = sum(SEARCHED_FLAG == "Y", na.rm = TRUE),
+            arrest = sum(SUSPECT_ARRESTED_FLAG == "Y", na.rm = TRUE)) %>%
+  mutate(non_arrest_rate = round(arrest / stops, 4)) %T>%
+  print() %>%
+  ggplot(aes(y = 1 - non_arrest_rate, 
+             x = SUSPECT_RACE_DESCRIPTION,
+             fill = SUSPECT_RACE_DESCRIPTION)) +
+  geom_col() +
+  coord_cartesian(ylim = c(0.5, 0.75)) +
+  scale_fill_viridis_d(option = "magma") +
+  labs(
+    x = "Suspect Race",
+    y = "% of Stops with No Arrest",
+    fill = "Race",
+    title = "No Arrest from Stops: 2020 - 2024"
+  ) +
+  theme_minimal()
+
+# group percentage of stops, BWH
+d3 <- sqf_hist %>%
+  group_by(SUSPECT_RACE_DESCRIPTION) %>%
+  summarize(count = n()) %>%
+  ungroup() %>%
+  mutate(prop = round(count / sum(count), 4)) %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %T>%
+  print() %>%
+  ggplot(aes(x = SUSPECT_RACE_DESCRIPTION,
+             y = prop,
+             fill = SUSPECT_RACE_DESCRIPTION)) +
+  geom_col() +
+  scale_fill_viridis_d(option = "magma") +
+  labs(x = "Race",
+       y = "Proportion of Stops",
+       title = "Group Percentage of Stops: 2020 - 2024",
+       fill = "Race")
+
+# stop initiation, BWH
+# how stops were initiated (e.g., witness, radio run, self-initiated)
+d4 <- sqf_hist %>%
+  group_by(SUSPECT_RACE_DESCRIPTION, STOP_WAS_INITIATED) %>%
+  summarize(count = n()) %>%
+  ungroup() %>%
+  group_by(STOP_WAS_INITIATED) %>%
+  mutate(prop_init = round(count / sum(count), 4)) %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
+  pivot_wider(names_from = STOP_WAS_INITIATED,
+              values_from = c(count, prop_init)) %T>%
+  print() %>%
+  pivot_longer(
+    cols = starts_with("prop_init_"),
+    names_to = "STOP_WAS_INITIATED",
+    names_prefix = "prop_init_",
+    values_to = "prop_init"
+  ) %>%
+  ggplot(aes(
+    x = STOP_WAS_INITIATED,,
+    y = prop_init,
+    fill = SUSPECT_RACE_DESCRIPTION
+  )) +
+  geom_col(position = "stack") +
+  scale_fill_viridis_d(option = "magma", direction = -1) +
+  labs(
+    title = "Percentage of Stop Initiation by Suspect Race",
+    x = "Suspect Race",
+    y = "Proportion",
+    fill = "Race"
+  ) +
+  scale_x_discrete(labels = c(
+    "Based on C/W on Scene" = "Witness on Scene",
+    "Based on Radio Run" = "Radio Run",
+    "Based on Self Initiated" = "Self-Initiated"
+  )) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 15, hjust = 1)
+  )
+
+d5 <- grid.arrange(d1, d2, d3, d4, nrow = 2)
+
+```
 
 
 # Spatial Analysis
