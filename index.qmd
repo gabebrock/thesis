@@ -227,30 +227,6 @@ stopsByBoro <- sqf2024 %>%
 
 ## New York City
 
-```{r map of nyc}
-# grab boro boundaries geoJSON file from NYC Planning website
-# Borough Boundaries (Clipped to Shoreline)
-# Date of Data: May 2025
-  # https://www.nyc.gov/content/planning/pages/resources/datasets/borough-boundaries
-
-# initialize geospatial data available at the geojson format
-nyc_geojson <- tempfile(fileext = ".pgeojson")
-
-# download boro boundaries json file
-download.file(
-  "https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Borough_Boundary/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson",
-  nyc_geojson)
-
-# read the nyc json file to a shapefile
-nyc_sf <- read_sf(nyc_geojson)
-
-# plot the NYC map
-nycMAP <- ggplot(nyc_sf) +
-  geom_sf(fill = "white", color = "black", linewidth = 0.3) +
-  theme_void()
-
-```
-
 ### Mapping Stops to NYC
 
 ```{r mapping stops to nyc map}
@@ -286,25 +262,6 @@ nycMAP <- ggplot(nyc_sf) +
 
 ```{r create map of nypd precincts}
 
-# grab precinct boundaries geoJSON file from NYC Planning website
-# Police Precincts (Clipped to Shoreline)
-# Date of Data: May 2025
-  # https://www.nyc.gov/content/planning/pages/resources/datasets/police-precincts
-
-# initialize geospatial data available at the geojson format
-nypd_geojson <- tempfile(fileext = ".pgeojson")
-
-# download boro boundaries json file
-download.file(
-  "https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Police_Precincts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson",
-  nypd_geojson)
-
-# read the nyc json file to a shapefile
-nypd_sf <- read_sf(nypd_geojson)
-
-# format `Precinct` to match variable name in sqf dfs
-nypd_sf$Precinct <- sprintf("%03d", as.integer(nypd_sf$Precinct))
-
 # plot the NYPD map
 nypdMAP <- ggplot(nypd_sf) +
   geom_sf(fill = "white", color = "black", linewidth = 0.3) +
@@ -312,40 +269,12 @@ nypdMAP <- ggplot(nypd_sf) +
 
 ```
 
-### Precinct 2020 nyc-census Data
-
-```{r load nypd precinct 2020 nyc-census data}
-
-nypdnyc_census2020 <- read_csv("r-data/nyc-census/nyc_precinct_2020pop.csv")
-
-# format `Precinct` to match variable name in sqf dfs
-nypdnyc_census2020$precinct <- sprintf("%03d", as.integer(nypdnyc_census2020$precinct))
-
-# nyc-census (only one race totals and total 2+ races)
-nypdnyc_census2020Races <- nypdnyc_census2020 %>%
-  select(precinct, P1_001N, P1_002N, P1_003N, P1_004N, P1_005N, P1_006N, P1_007N, P1_008N, P1_009N, P2_002N, P2_003N)
-
-# precincts, proportion of black residents
-nypdnyc_census2020Black <- nypdnyc_census2020 %>%
-  select(precinct, P1_001N, P1_004N) %>%
-  mutate(prop = round(P1_004N / P1_001N, 2))
-
-```
 
 ```{r heat map of black NYC residents, by nypd precinct}
 
-# join nyc-census data to spatial precinct data
-nypd_sf <- nypd_sf %>%
-  mutate(Precinct = as.character(Precinct)) %>%
-  left_join(
-    nypdnyc_census2020Black %>%
-      mutate(precinct = as.character(precinct)),
-    by = c("Precinct" = "precinct")
-  )
-
 # plot heatmap of proportion Black, by precinct
-blackHeatMap <- ggplot(nypd_sf) +
-  geom_sf(aes(fill = prop), color = "white", linewidth = 0.3) +
+blackHeatMap <- ggplot(nyc_census2020) +
+  geom_sf(aes(fill = black_prop), color = "white", linewidth = 0.3) +
   scale_fill_viridis_c(
     option = "rocket",
     name = "Proportion of Black Residents",
@@ -354,10 +283,6 @@ blackHeatMap <- ggplot(nypd_sf) +
   ) +
   theme_void() +
   theme(legend.position = "bottom")
-
-# +
-#  labs(title = "Proportion of Black NYC Residents, by NYPD Precinct")
-
 
 ```
 
@@ -811,3 +736,5 @@ sqf2024 %>%
   facet_wrap(~ SUSPECT_RACE_DESCRIPTION, nrow = 3)
 
 ```
+
+
