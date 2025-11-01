@@ -1,3 +1,9 @@
+
+# since the Quarto docs may try to install a package during rendering
+# setup CRAN mirror globally, so R knows which CRAN repository to use 
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+
 # list of required packages
 required_packages <- c("tidyverse", "readxl", "mapview", "sf", "tinytext", "textdata", "kableExtra")
 
