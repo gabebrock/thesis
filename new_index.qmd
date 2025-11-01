@@ -10,23 +10,26 @@ format: html
 This dataset is provided by the [New York Police Department](https://www.nyc.gov/site/nypd/stats/reports-analysis/stopfrisk.page) and contains information about the stop, question, and frisk policy implemented by the NYPD. The data can be found at `/r-data/nypd-stop`
 
 ## NYC Crime Data
-  - [NYPD Shooting Incident Data (Historic)](): List of every shooting incident that occurred in NYC going back to 2006 through the end of the previous calendar year.
-  - [NYPD Complaint Data (Historic)](): List all valid felony, misdemeanor, and violation crimes reported to the New York City Police Department (NYPD) from 2006 to the end of last year
-  - [NYPD Arrest Data (Historic)](): List of every arrest in NYC going back to 2006 through the end of the previous calendar year. 
-  - Misdemeanor Counts by Precinct: List of major misdemeanor crime statistics for each NYPD precinct.
-  - Major Felony Counts by Precinct: List of major felony crime statistics for each NYPD precinct.
-  
+
+-   [NYPD Shooting Incident Data (Historic)](): List of every shooting incident that occurred in NYC going back to 2006 through the end of the previous calendar year.
+-   [NYPD Complaint Data (Historic)](): List all valid felony, misdemeanor, and violation crimes reported to the New York City Police Department (NYPD) from 2006 to the end of last year
+-   [NYPD Arrest Data (Historic)](): List of every arrest in NYC going back to 2006 through the end of the previous calendar year.
+-   Misdemeanor Counts by Precinct: List of major misdemeanor crime statistics for each NYPD precinct.
+-   Major Felony Counts by Precinct: List of major felony crime statistics for each NYPD precinct.
+
 ## NYC GIS Data
-  - [NYC Borough Boundaries](): Shapefile data for the five boroughs of New York City.
-  - [NYPD Precinct Boundaries](): Shapefile data for the 77 NYPD precincts in New York City.
-  - [U.C.S. Census Tracts for New York City](): Shapefile data for the census tracts in New York City.
+
+-   [NYC Borough Boundaries](): Shapefile data for the five boroughs of New York City.
+-   [NYPD Precinct Boundaries](): Shapefile data for the 77 NYPD precincts in New York City.
+-   [U.C.S. Census Tracts for New York City](): Shapefile data for the census tracts in New York City.
 
 ## NYC Census Data
-  - [NYC Census Data by Precinct (2020)](): Census data for New York City broken down by NYPD precincts from the 2020 U.S. Census.
+
+-   [NYC Census Data by Precinct (2020)](): Census data for New York City broken down by NYPD precincts from the 2020 U.S. Census.
 
 # Setup
-`setup.R` contains the code to load and preprocess the datasets used in this analysis -- NYPD stop and crime data, NYC GIS data, and US Census data.
 
+`setup.R` contains the code to load and preprocess the datasets used in this analysis -- NYPD stop and crime data, NYC GIS data, and US Census data.
 
 ```{r setup, include=FALSE}
 
@@ -55,9 +58,7 @@ if (!exists(".setup_complete_census") || !.setup_complete_census) {
 
 ```
 
-
 # Descriptive Statistics
-
 
 ```{r}
 
@@ -67,10 +68,15 @@ sqfSummary <- sqf_hist %>%
   summary()
 print(sqfSummary)
 
-
-# 
+# stop breakdown, by race and arrest rate
+stopsByRace <- sqf_hist %>% 
+  filter(YEAR2 == 2024) %>%
+  group_by(SUSPECT_RACE_DESCRIPTION) %>%
+  count() %>%
+  ungroup()
 
 ```
+
 ```{r}
 
 # total annual stops 2020-2024
@@ -180,7 +186,6 @@ d5 <- grid.arrange(d1, d2, d3, d4, nrow = 2)
 
 ```
 
-
 # Spatial Analysis
 
 ## NYPD Precincts
@@ -194,7 +199,21 @@ nypdMAP <- ggplot(nypd_sf) +
 
 ```
 
+## NYC's Five Boroughs
+
+![](images/clipboard-1679408522.png)
+
+> “[The above] figure presents a map of the study area broken down by precinct and bolstered by areas of racial and ethnic dominance based on census figures indicating residential percentages greater than 70 percent for the Hispanic, non-Hispanic black, and non-Hispanic white populations.” ([Newberry, 2017, p. 313](zotero://select/library/items/3GQF23RV)) ([pdf](zotero://open-pdf/library/items/ZD4QYXA7?page=7&annotation=FVYBVE4H))
+
+```{r}
+
+# NYC Precinct Distribution
+# NYC map with Precincts and Boroughs
+# with Boro lines and precint overlays, including the number of the precinct
+
+# NYC Residential Dominance
+# NYC map with precint boundaries and Census Tracts
+# Color census tract wherein one BWH makes up 70 percent of the population
 
 
-
-
+```
