@@ -68,6 +68,7 @@ nypd_sf <- read_sf(nypd_geojson)
 
 # format `Precinct` to match variable name in sqf dfs
 nypd_sf$Precinct <- sprintf("%03d", as.integer(nypd_sf$Precinct))
+nypd_sf$Precinct <- as.character(as.integer(nypd_sf$Precinct))
 
 # plot the NYPD map
 nypdMAP <- ggplot(nypd_sf) +
@@ -76,6 +77,11 @@ nypdMAP <- ggplot(nypd_sf) +
 
 
 
+# NYC Census Tracts
+download.file("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Census_Tracts_for_2020_US_Census/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson",
+              tract_geojson <- tempfile(fileext = ".pgeojson"))
 
+# read the nyc census tract json file to a shapefile
+tracts_sf <- read_sf(tract_geojson)
 
 .setup_complete_gis <- TRUE
