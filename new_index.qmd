@@ -43,7 +43,7 @@ if (!exists(".setup_complete") || !.setup_complete) {
 
 # check to see if the GIS setup has already been run, if not, run it
 if (!exists(".setup_complete_gis") || !.setup_complete_gis) {
-      source("setup.R")
+      source("gis.R")
     } else {
       message("gis.R has already been run.")
     }
