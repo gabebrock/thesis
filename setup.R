@@ -89,7 +89,6 @@ sqf_hist <- sqf_files %>%
 BWH <- c("BLACK", "WHITE", "HISPANIC")
 
 sqf_hist <- sqf_hist %>%
-  filter(!is.na(SUSPECT_RACE_DESCRIPTION)) %>%
   mutate(SUSPECT_RACE_DESCRIPTION = case_when(SUSPECT_RACE_DESCRIPTION %in% 
                                                 c("BLACK HISPANIC", "WHITE HISPANIC") ~ "HISPANIC",
                                               TRUE ~ SUSPECT_RACE_DESCRIPTION))
