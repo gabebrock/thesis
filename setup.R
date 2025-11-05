@@ -26,31 +26,64 @@ library(gridExtra)
 library(tidycensus)
 
 
-# load 2024 sqf data
-# treating (null) values as NA values, for simplicity in the analysis. note that where NA appears in the data, it is because the officer there was no data for that fields not that, it was not applicable to the situation.
-sqf2024 <- read_excel("r-data/nypd-stop/sqf-2024.xlsx", na = "(null)")
-sqf2023 <- read_excel("r-data/nypd-stop/sqf-2023.xlsx", na = "(null)")
-sqf2022 <- read_excel("r-data/nypd-stop/sqf-2022.xlsx", na = "(null)")
-sqf2021 <- read_excel("r-data/nypd-stop/sqf-2021.xlsx", na = "(null)")
-sqf2020 <- read_excel("r-data/nypd-stop/sqf-2020.xlsx", na = "(null)")
+# define expected sqf data schema
+expected_sqf_data <- c(
+  "STOP_FRISK_ID", "STOP_FRISK_DATE", "STOP_FRISK_TIME",
+  "ISSUING_OFFICER_COMMAND_CODE", "SUPERVISING_OFFICER_COMMAND_CODE",
+  "SUSPECT_REPORTED_AGE", "SUSPECT_WEIGHT", "SUSPECT_HEIGHT",
+  "STOP_LOCATION_PRECINCT", "STOP_LOCATION_X", "STOP_LOCATION_Y",
+  "STOP_LOCATION_ZIP_CODE"
+)
 
-sqf_years <- list(sqf2020, sqf2021, sqf2022, sqf2023, sqf2024)
+# Helper function: read + normalize
+read_sqf <- function(path) {
+  # treating (null) values as NA values, for simplicity in the analysis. note that where NA appears in the data, it is because the officer there was no data for that fields not that, it was not applicable to the situation.
+  df <- read_excel(path, na = "(null)")
+  
+  # add missing expected fields with NA values
+  missing_sqf_data <- setdiff(expected_sqf_data, names(df))
+  df[missing_sqf_data] <- NA
+  
+  # coerce fields to standardized variable types
+  df %>%
+    mutate(
+      STOP_FRISK_ID = as.double(STOP_FRISK_ID),
+      STOP_FRISK_DATE = as.Date(STOP_FRISK_DATE),
+      STOP_FRISK_TIME = as.character(STOP_FRISK_TIME),
+      ISSUING_OFFICER_COMMAND_CODE = as.character(ISSUING_OFFICER_COMMAND_CODE),
+      SUPERVISING_OFFICER_COMMAND_CODE = as.character(SUPERVISING_OFFICER_COMMAND_CODE),
+      SUSPECT_REPORTED_AGE = as.double(SUSPECT_REPORTED_AGE),
+      SUSPECT_WEIGHT = as.double(SUSPECT_WEIGHT),
+      SUSPECT_HEIGHT = as.double(SUSPECT_HEIGHT),
+      STOP_LOCATION_PRECINCT = as.double(STOP_LOCATION_PRECINCT),
+      STOP_LOCATION_X = as.double(STOP_LOCATION_X),
+      STOP_LOCATION_Y = as.double(STOP_LOCATION_Y),
+      STOP_LOCATION_ZIP_CODE = as.double(STOP_LOCATION_ZIP_CODE)
+    )
+}
 
-sqf_hist <- sqf_years %>%
-  lapply(function(df) df %>%
-           mutate(
-             STOP_FRISK_DATE = as.Date(STOP_FRISK_DATE),
-             STOP_FRISK_TIME = as.character(STOP_FRISK_TIME),
-             ISSUING_OFFICER_COMMAND_CODE = as.character(ISSUING_OFFICER_COMMAND_CODE),
-             SUPERVISING_OFFICER_COMMAND_CODE = as.character(SUPERVISING_OFFICER_COMMAND_CODE),
-             SUSPECT_REPORTED_AGE = as.double(SUSPECT_REPORTED_AGE),
-             SUSPECT_WEIGHT = as.double(SUSPECT_WEIGHT),
-             SUSPECT_HEIGHT = as.double(SUSPECT_HEIGHT),
-             STOP_LOCATION_PRECINCT = as.double(STOP_LOCATION_PRECINCT),
-             STOP_LOCATION_X = as.double(STOP_LOCATION_X),
-             STOP_LOCATION_Y = as.double(STOP_LOCATION_Y)
-           )) %>%
-  bind_rows()
+# list of sqf data files
+sqf_files <- c(
+  "r-data/nypd-stop/sqf-2024.xlsx",
+  "r-data/nypd-stop/sqf-2023.xlsx",
+  "r-data/nypd-stop/sqf-2022.xlsx",
+  "r-data/nypd-stop/sqf-2021.xlsx",
+  "r-data/nypd-stop/sqf-2020.xlsx",
+  "r-data/nypd-stop/sqf-2019.xlsx",
+  "r-data/nypd-stop/sqf-2018.xlsx"
+  # "r-data/nypd-stop/sqf-2017.xlsx"
+  # "r-data/nypd-stop/sqf-2016.csv"
+  # "r-data/nypd-stop/sqf-2015.csv"
+  # "r-data/nypd-stop/sqf-2014.csv"
+  # "r-data/nypd-stop/sqf-2013.csv"
+  # "r-data/nypd-stop/sqf-2012.csv"
+  # "r-data/nypd-stop/sqf-2011.csv"
+)
+
+# read annual sqf files to historic df
+sqf_hist <- sqf_files %>%
+  map_dfr(read_sqf)
+
 
 # quick text for Black, White, and Hispanic stops
 BWH <- c("BLACK", "WHITE", "HISPANIC")
