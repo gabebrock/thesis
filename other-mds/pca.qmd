@@ -1,0 +1,37 @@
+# Principal Component Analysis
+
+PCA independent variables list
+
+PRECINCT, STOP_FRISK_DATE, MEDIAN_AGE, MEDIAN_HOUSING_VALUE, LESS_THAN_HS_EDUCATION, BACHELORS_OR_ABOVE, UNEMPLOYMENT_RATE, PERCENT_HOUSEHOLDS_ON_SNAP, PERCENT_HOUSEHOLDS_IN_POVERTY, MEDIAN_HOUSEHOLD_INCOME, TOTAL_POPULATION, PERCENT_WHITE, PERCENT_BLACK, PERCENT_HISPANIC, POPULATION_CHANGE
+
+```{r SQF descriptive statistics}
+
+# summary statistics for stops
+sqf_hist %>%
+  st_drop_geometry() %>%
+  group_by(YEAR2, SUSPECT_RACE_DESCRIPTION) %>%
+  summarize(total = round(n(), 0),
+            propArrested = round(sum(SUSPECT_ARRESTED_FLAG == "Y", na.rm = TRUE) / total, 3),
+            propFrisked  = round(sum(FRISKED_FLAG == "Y", na.rm = TRUE) / total, 3),
+            propSearched = round(sum(SEARCHED_FLAG == "Y", na.rm = TRUE) / total, 3)) %>%
+  mutate(ALL = round(sum(total), 0)) %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH,
+         YEAR2 >= 2021) %>%
+  pivot_longer(
+    cols = c(total, propArrested, propFrisked, propSearched),
+    names_to = "metric",
+    values_to = "value"
+  ) %>%
+  pivot_wider(
+    names_from  = SUSPECT_RACE_DESCRIPTION,   # races become columns
+    values_from = value                       # metric values fill the cells
+  )
+    
+  # by year
+    # BWH and ALL   
+      # total number of stops
+      # % arrested from stop
+      # % frisked from stop
+      # % searched from stop
+
+```

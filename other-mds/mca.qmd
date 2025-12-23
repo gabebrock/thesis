@@ -1,0 +1,421 @@
+---
+title: "pca"
+format: html
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r setup, include=FALSE}
+
+# check to see if the setup has already been run, if not, run it
+# this includes the NYPD crime and SQF data and R libraries 
+if (!exists(".setup_complete") || !.setup_complete) {
+      source("setup.R")
+    } else {
+      message("setup.R has already been run.")
+    }
+
+```
+
+=== 
+
+# Multiple correspondence analysis
+
+The Multiple correspondence analysis (MCA) is an extension of the simple correspondence analysis (chapter @ref(correspondence-analysis)) for summarizing and visualizing a data table containing more than two categorical variables.
+It can also be seen as a generalization of principal component analysis when the variables to be analyzed are categorical instead of quantitative (Abdi and Williams 2010).
+
+`MCA` is generally used to analyse a data set from survey.
+The goal is to identify:
+
+-   A group of individuals with similar profile in their answers to the questions
+-   The associations between variable categories
+
+The following analysis is the MCA computation (`FactoMineR` for the analysis) and visualization (`factoextra` for data visualization) of the SQF data set for 2021 and 2024.
+We use the MCA to reveal the most important variables that contribute the most in explaining the variations in the data set.
+We continue by predicting the results for supplementary individuals and variables and filter MCA results in order to keep only the most contributing variables.
+
+```{r}
+
+set.seed(1)
+sqf_small <- sqf_hist %>%
+  filter(YEAR2 == 2021 | YEAR2 == 2024)
+
+
+head(sqf_small)
+```
+
+```{r data preparation}}
+# This data is from the  NYPD Stop-Question-Frisk (SQF) historical register.
+head(sqf_hist)
+
+# The data contains 34333 rows (individual stops) and 87 columns (variables). We’ll use only some of these stops (YEAR 2021 and 2024) and variables (qualitative-only) to perform the multiple correspondence analysis. The coordinates of the remaining individuals and variables on the factor map will be predicted from the previous MCA results.
+
+sqf_small <- sqf_hist %>%
+  filter(YEAR2 == 2021 | YEAR2 == 2024,
+         SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
+  select(c("SUSPECT_RACE_DESCRIPTION", "SUSPECT_SEX", 
+           "FRISKED_FLAG", "SEARCHED_FLAG", "SUSPECT_ARRESTED_FLAG",
+           "SEARCH_BASIS_INCIDENTAL_TO_ARREST_FLAG",
+           "WEAPON_FOUND_FLAG", "FIREARM_FLAG",
+           "OTHER_CONTRABAND_FLAG",
+           "STOP_LOCATION_BORO_NAME"))
+
+sqf_small <- sqf_small%>%
+  mutate(across(everything(), as.factor)) %>%
+  select(where(~ dplyr::n_distinct(.) > 1)) %>%
+  select(where(~ !all(is.na(.))))
+
+sqf_small %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "value") %>%
+  count(variable, value) %>%
+  ggplot(aes(x = value, y = n, fill = variable)) +
+  geom_col() +
+  facet_wrap(~ variable, scales = "free_x") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Value", y = "Count", title = "Variable Counts")
+  
+```
+
+In MCA terminology, our data contains :
+
+-   Active individuals (rows 1:34333): Individual stops that are used in the MCA.
+
+-   Active variables (columns 5:15) : Variables that are used in the MCA.
+
+-   Supplementary variables: They don’t participate to the MCA.
+    The coordinates of these variables will be predicted.
+
+-   Supplementary quantitative variables (quanti.sup): Columns 1 and 2 corresponding to the columns age and time, respectively.
+
+-   Supplementary qualitative variables (quali.sup: Columns 3 and 4 corresponding to the columns Sick and Sex, respectively. This factor variables will be used to color individuals by groups.
+
+```{r MCA analysis}
+
+sqf.mca <- MCA(slice_sample(sqf_small, n = 1000), ncp = 5, graph = FALSE)
+
+print(sqf.mca)
+
+# MCA(X, ncp = 5, graph = TRUE)
+  # X: a df with n rows (individuals) and p columns (categorical variables)
+  # ncp: number of dimensions kept in the final results.
+  # graph: a logical value. If TRUE a graph is displayed.
+
+```
+
+## Visualization and interpretation
+
+We’ll use the `factoextra` R package to help in the interpretation and the visualization of the multiple correspondence analysis.
+No matter what function you decide to use \[FactoMiner::MCA(), ade4::dudi.mca()\], you can easily extract and visualize the results of multiple correspondence analysis using R functions provided in the `factoextra` R package.
+
+### Eigenvalues / Variances
+
+The proportion of variances retained by the different dimensions (axes) can be extracted using the function get_eigenvalue() \[factoextra package\] as follow:
+
+```{r eigenvalues / varianes}
+
+eig.val <- get_eigenvalue(sqf.mca)
+
+head(eig.val)
+
+# visualize the percentages of inertia explained by each MCA dimensions
+fviz_screeplot(sqf.mca, addlabels = TRUE, ylim = c(0, 45))
+
+# draw the biplot of individuals and variable categories
+fviz_mca_biplot(sqf.mca, 
+               repel = F, # Avoid text overlapping (slow if many point)
+               ggtheme = theme_minimal())
+
+```
+
+The plot above shows a global pattern within the data.
+Rows (individuals) are represented by blue points and columns (variable categories) by red triangles.
+
+The distance between any row points or column points gives a measure of their similarity (or dissimilarity).
+Row points with similar pro!l
+e are closed on the factor map.
+The same holds true for column points.
+
+## Graph of variables
+
+#### Results
+
+The function `get_mca_var()` \[in `factoextra`\] is used to extract the results for variable categories.
+This function returns a list containing the coordinates, the cos2 and the contribution of variable categories:
+
+```{r}
+
+var <- get_mca_var(sqf.mca)  
+var
+
+
+```
+
+The components of the get_mca_var() can be used in the plot of rows as follow:
+
+-   `var$coord`: coordinates of variables to create a scatter plot
+
+-   `var$cos2`: represents the quality of the representation for variables on the factor map.
+
+-   `var$contrib`: contains the contributions (in percentage) of the variables to the definition of the dimensions.
+
+```{r}
+
+# The different components can be accessed as follow:
+
+# Coordinates  
+head(var$coord)  
+
+# Cos2: quality on the factor map  
+head(var$cos2)  
+
+# Contributions to the principal components  
+head(var$contrib)
+
+```
+
+### Correlation between variables and principal dimensions
+
+```{r}
+
+fviz_mca_var(sqf.mca, choice = "mca.cor",  repel = TRUE, # Avoid text overlapping (slow)  
+             ggtheme = theme_minimal())
+
+```
+
+-   The plot above helps to identify variables that are the most correlated with each dimension. The squared correlations between variables and the dimensions are used as coordinates.
+-   It can be seen that, the variables `SEARCHED_FLAG`, `SEARCH_BASIS_INCIDENTAL_TO_ARREST_FLAG` and `SUSPECT_ARRESTED_FLAG` are the most correlated with dimension 1. Similarly, the variables `SUSPECTED_CRIME_DESCRIPTION`, `WEAPON_FOUND_FLAG`, `FRISKED_FLAG`, and `FIREARM_FLAG` are the most correlated with dimension 2.
+
+### Coordinates of variable categories
+
+```{r}
+
+# display the coords of each variable categories in each dimension (1, 2, and 3)
+head(round(var$coord, 2), 4)
+
+# visualize only variable categories
+fviz_mca_var(sqf.mca, col.var="blue",
+             repel = TRUE, 
+             labelsize = 2,
+             ggtheme = theme_minimal())
+
+```
+
+The plot above shoes the relationships between variable categories.
+Categories that are close to each other are similar.
+It can be interpreted as follow:
+
+-   Variable categories with a similar profile are grouped together.
+
+-   Negatively correlated variable categories are positioned on opposite sides of the plot origin (opposed quadrants).
+
+-   The distance between category points and the origin measures the quality of the variable category on the factor map.
+    Category points that are away from the origin are well represented on the factor map.
+
+### Quality of representation of variable categories
+
+The three dimensions 1, 2, and 3 are sufficient to retain 48% (47.9) of the total inertia (variation) contained in the data.
+Not all the points are equally well displayed in the three dimensions.
+
+The quality of the representation is called the *squared cosine* (cos2), which measures the degree of the association between variable categories and a particular axis.
+
+The cos2 of variable categories can be extracted as follows:
+
+```{r}
+
+# 
+head(var$cos2, 4)
+
+```
+
+If a variable category is well represented by two dimensions, the sum of the cos2 is closed to one.
+For some of the row items, more than 2 dimensions are required to perfectly represent the data.
+
+It’s possible to color variable categories by their cos2 values using the argument col.var = “cos2”.
+This produces a gradient colors, which can be customized using the argument gradient.cols.
+For instance, gradient.cols = c("white", "blue", "red") means that:
+
+-   variable categories with low cos2 values will be colored in “white”
+
+-   variable categories with mid cos2 values will be colored in “blue”
+
+-   variable categories with high cos2 values will be colored in “red”
+
+```{r}
+
+# Color by cos2 values: quality on the factor map  
+fviz_mca_var(sqf.mca, col.var = "cos2",  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             labelsize = 2,
+             repel = TRUE, # Avoid text overlapping  
+             ggtheme = theme_minimal())
+
+```
+
+```{r}
+
+# visualize the cos2 of row categories on all the dimensions using the corrplot package:
+library("corrplot") 
+corrplot(var$cos2, is.corr=FALSE)
+
+
+# Cos2 of variable categories on Dim.1 and Dim.2  
+fviz_cos2(sqf.mca, choice = "var", axes = 1:2)
+
+```
+
+### Contribution of variable categories to the dimensions
+
+The contribution of the variable categories (in %) to the de!n
+ition of the dimensions can be extracted as follow:
+
+The variable categories with the larger value, contribute the most to the de!n
+ition of the dimensions.
+Variable categories that contribute the most to Dim.1 and Dim.2 are the most important in explaining the variability in the data set.
+
+```{r}
+
+head(round(var$contrib,2), 4)
+
+```
+
+The function `fviz_contrib()` can be used to draw a bar plot of the contribution of variable categories.
+The R code below shows the top 15 variable categories contributing to the dimensions:
+
+```{r}
+
+# Contributions of rows to dimension 1  
+fviz_contrib(sqf.mca, choice = "var", axes = 1, top = 15)  
+
+# Contributions of rows to dimension 2  
+fviz_contrib(sqf.mca, choice = "var", axes = 2, top = 15)
+
+```
+
+## Graph of individuals Results
+
+The function `get_mca_ind()` is used to extract the results for individuals. This function returns a list containing the coordinates, the cos2 and the contributions of individuals:
+
+```{r}
+
+ind <- get_mca_ind(sqf.mca)  
+ind
+
+```
+### Plots: quality and contribution  
+
+The function `fviz_mca_ind()` is used to visualize only individuals. Like variable categories, it’s also possible to color individuals by their cos2 values:
+
+```{r}
+
+fviz_mca_ind(sqf.mca, col.ind = "cos2",  
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),  
+             repel = F, # Avoid text overlapping (slow if many points)  
+             ggtheme = theme_minimal())
+
+```
+```{r}
+
+# Cos2 of individuals  
+fviz_cos2(sqf.mca, choice = "ind", axes = 1:2, top = 20)  
+
+# Contribution of individuals to the dimensions  
+fviz_contrib(sqf.mca, choice = "ind", axes = 1:2, top = 20)
+
+```
+### Color individuals by groups
+
+The R code below colors the individuals by groups using the levels of the variable SUSPECT_ARRESTED_FLAG The argument habillage is used to specify the factor variable for coloring the individuals by groups. A concentration ellipse can be also added around each group using the argument addEllipses = TRUE. If you want a confidence ellipse around the mean point of categories, use ellipse.type = "confidence" The argument palette is used to change group colors.
+
+```{r}
+
+fviz_mca_ind(sqf.mca,  label = "none", # hide individual labels  
+             habillage = "SUSPECT_ARRESTED_FLAG", # color by groups  
+             palette = c("#00AFBB", "#E7B800"),  
+             addEllipses = TRUE, 
+             ellipse.type = "confidence",  
+             ggtheme = theme_minimal())
+
+```
+Note that, to specify the value of the argument `habillage`, it’s also possible to use the index of the column as follow (`habillage = 2`). Additionally, you can provide an external grouping variable as follow: habillage = poison$Vomiting. For example:
+
+```{r}
+
+# habillage = index of the column to be used as grouping variable  
+fviz_mca_ind(sqf.mca, habillage = 4, addEllipses = TRUE) 
+
+# habillage = external grouping variable  
+# fviz_mca_ind(sqf.mca, habillage = sqf_small$SUSPECT_ARRESTED_FLAG, addEllipses = TRUE)
+
+fviz_ellipses(sqf.mca, c("FRISKED_FLAG", "SEARCHED_FLAG", "SUSPECT_ARRESTED_FLAG"),  
+              geom = "point")
+
+```
+### Dimension description  
+
+The function `dimdesc()` can be used to identify the most correlated variables with a given dimension:
+
+```{r}
+
+sqf.desc <- dimdesc(sqf.mca, axes = c(1,2))  
+
+# Description of dimension 1  
+sqf.desc[[1]] 
+
+# Description of dimension 2  
+sqf.desc[[2]]
+
+```
+
+# MCA Specification
+
+## Supplementary elements  
+
+### Definition and types
+
+
+
+The SQF data set contains:  
+- supplementary continuous variables (`quanti.sup` = 1:2, columns 1 and 2 corresponding to the columns age and time, respectively) 
+- supplementary qualitative variables (`quali.sup` = 3:4, corresponding to the columns Sick and Sex, respectively). This factor variables are used to color individuals by groups
+
+Supplementary variables and individuals are not used for the determination of the principal dimensions. Their coordinates are predicted using only the information provided by the performed multiple correspondence analysis on active variables/individuals.
+
+To specify supplementary individuals and variables, the function `MCA()` can be used as follow :
+
+```{r}
+
+
+sqf_small_sup <- sqf_hist %>%
+  filter(YEAR2 == 2021 | YEAR2 == 2024,
+         SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
+  select(c("FRISKED_FLAG", "SEARCHED_FLAG", "SUSPECT_ARRESTED_FLAG",
+           # quali.sup variables
+           "SUSPECT_RACE_DESCRIPTION", "SUSPECT_SEX", # race and sex
+           "SEARCH_BASIS_INCIDENTAL_TO_ARREST_FLAG", # productive searches
+           "WEAPON_FOUND_FLAG", "FIREARM_FLAG", # hit rate
+           "OTHER_CONTRABAND_FLAG",
+           "SUSPECT_ARREST_OFFENSE",
+           "STOP_LOCATION_BORO_NAME", "STOP_LOCATION_PRECINCT", # location
+           "BACKROUND_CIRCUMSTANCES_SUSPECT_KNOWN_TO_CARRY_WEAPON_FLAG", "BACKROUND_CIRCUMSTANCES_VIOLENT_CRIME_FLAG", # background circumstances
+           # quanti.sup variables
+           "STOP_FRISK_DATE", "STOP_FRISK_TIME", "STOP_DURATION_MINUTES"))
+
+sqf_small_sup <- sqf_small_sup%>%
+  mutate(across(1:14, as.factor)) %>%
+  select(where(~ dplyr::n_distinct(.) > 1)) %>%
+  select(where(~ !all(is.na(.))))
+
+
+MCA(sqf_small_sup, 
+    ind.sup = NULL, # a numeric vector specifying the indexes of the supplementary individuals
+    quanti.sup = 4:14, # # numeric vector specifying, the indexes of the quantitative variables. 
+    quali.sup= 15:17, # numeric vector specifying, the indexes of the qualitative variables. 
+    graph = TRUE, 
+    axes = c(1,2)) # a vector of length 2 specifying the components to be plotted.
+
+
+```
+
+
+
+

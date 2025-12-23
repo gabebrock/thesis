@@ -1,0 +1,141 @@
+---
+title: "compstat"
+format: html
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+
+if (!exists(".setup_complete") || !.setup_complete) {
+      source("setup.R")
+    } else {
+      message("setup.R has already been run.")
+    }
+
+```
+
+```{r}
+
+# have months sort chronologically, not alphabetically
+sqf_hist <- sqf_hist %>%
+  mutate(MONTH2 = factor(MONTH2,
+                        levels = month.name,
+                        ordered = TRUE))
+
+# count stop totals per month, per precinct
+sqf_hist %>%
+  group_by(STOP_LOCATION_PRECINCT, MONTH2) %>%
+  count() %>%
+  pivot_wider(names_from = MONTH2,
+              values_from = n)
+
+```
+
+
+```{r}
+
+# complaint history, by precinct
+complaint_hist %>% 
+  mutate(month = month(CMPLNT_FR_DT, label = TRUE, abbr = TRUE)) %>%
+  group_by(ADDR_PCT_CD, month) %>%
+  count() %>%
+  pivot_wider(names_from = month,
+              values_from = n)
+
+```
+
+```{r}
+
+complaint_totals <- complaint_hist %>%
+  group_by(date = lubridate::floor_date(CMPLNT_FR_DT, "day"),
+           ADDR_PCT_CD) %>%
+  count() %>%
+  ungroup(date) %>%
+  mutate(total = cumsum(n))
+  
+complaint_hist %>%
+  filter(CMPLNT_FR_DT >= as.Date("2024-01-01"),
+         SUSP_RACE == "BLACK") %>%
+   group_by(date = lubridate::floor_date(CMPLNT_FR_DT, "day"),
+           ADDR_PCT_CD) %>%
+  count() %>%
+  ungroup() %>%
+  group_by(ADDR_PCT_CD) %>%
+  mutate(total = cumsum(n)) %>%
+  ggplot(aes(x = date, y = total,
+             group = ADDR_PCT_CD)) +
+  geom_step() +
+  theme(legend.position = "none")
+
+```
+
+```{markdown}
+**Main Null Hypotheses**
+
+-   $H_0$ (Primary):
+
+    -   There is no difference in the search/frisk rate of against Black
+        citizens before and after shootings by Black suspects.
+
+-   $H_0$: $\Delta \text{Searches}_{Black,\, after-before} = 0$
+
+    -   If this null hypothesis is rejected (i.e., a statistically
+        significant increase is observed), it indicates that such events
+        cause a rise in discriminatory use of force.
+
+⸻
+
+$H_0$ (Race-Specificity):
+
+The change in use of force after the shootings does not differ by
+suspect race of the event.
+
+$H_0$:
+$\Delta \text{Search}\space{Black\,suspect} = \Delta \text{Search}\space{White/Hispanic\,suspect}$
+
+Rejecting this null supports Legewie’s argument that only events
+involving Black suspects trigger racialized responses — not violent
+events in general.
+
+⸻
+
+-   $H_0$ (Group Comparison): There is no difference across racial
+    groups in how the use of force changes after the same event.
+
+-   $H_0$:
+
+    -   $\Delta \text{Use of Force}\space{Blacks} = \Delta \text{Use of Force}\space{Whites/Hispanics}$
+
+    -   Rejecting this null means the event leads to race-specific
+        effects, consistent with racial bias.
+
+⸻
+
+**Secondary / Robustness Null Hypotheses** - *Placebo tests*:
+
+-   $H_0$:There is no change in use of force around fictitious
+    (nonexistent) event dates.
+    -   Confirms that the observed effects are due to the real events,
+        not random variation.
+
+*Alternative suspect races*: - $H_0$: Shootings by White or Hispanic
+suspects have no effect on use of force against any racial group.
+```
+
+```{r}
+
+# shootings during Adams admin, BWH
+shooting_hist %>%
+  filter(PERP_RACE %in% BWH,
+         OCCUR_DATE >= "2022-01-01") %>%
+  mutate(year = year(OCCUR_DATE)) %>%
+  group_by(PERP_RACE, year) %>%
+  count() %>%
+  pivot_wider(names_from = year,
+              values_from = n)
+
+```
+
+

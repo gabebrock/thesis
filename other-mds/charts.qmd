@@ -1,0 +1,58 @@
+---
+title: "charts"
+format: html
+---
+
+```{r}
+
+# Define vectors (aligned in time)
+days <- -12:13
+
+# Observed trend (solid)
+observed <- c(rep(NA, 12),
+              0.213, 0.212, 0.211, 0.209, 0.206, 0.203,
+              0.200, 0.197, 0.194, 0.191, 0.188, 0.185,
+              0.181, 0.177)
+
+# Counterfactual trend (dashed)
+counterfactual <- c(rep(NA, 12),
+                    0.175, 0.178, 0.181, 0.179, 0.176, 0.175,
+                    0.176, 0.178, 0.181, 0.184, 0.187, 0.189,
+                    0.187, 0.185)
+
+# Create base plot
+plot(days, observed,
+     type = "l",
+     lwd = 3,
+     col = "gray30",
+     ylim = c(0.15, 0.23),
+     xlab = "Days relative to Shooting",
+     ylab = "Proportion of Stops That Involve Force",
+     xaxt = "n")
+
+# Add counterfactual trend
+lines(days, counterfactual,
+      lwd = 3,
+      lty = 2,
+      col = "gray50")
+
+# Add vertical event line at day 0
+abline(v = 0, lwd = 2)
+
+# Customize x-axis ticks
+axis(1, at = seq(-12, 12, 4))
+
+# Add legend
+legend("topleft",
+       legend = c("Counterfactual Trend", "Observed Trend"),
+       lty = c(2, 1),
+       lwd = 3,
+       col = c("gray40", "gray10"),
+       bty = "n")
+
+# Optional annotations
+text(6, 0.205, "Observed trend\nafter event", pos = 4)
+text(3, 0.165, "Counterfactual trend\nafter event", pos = 4)
+
+```
+

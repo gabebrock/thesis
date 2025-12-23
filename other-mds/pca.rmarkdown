@@ -1,0 +1,641 @@
+---
+title: "pca"
+format: html
+---
+
+```{r setup, include=FALSE}
+
+# check to see if the setup has already been run, if not, run it
+# this includes the NYPD crime and SQF data and R libraries 
+if (!exists(".setup_complete") || !.setup_complete) {
+      source("setup.R")
+    } else {
+      message("setup.R has already been run.")
+    }
+
+```
+
+
+===
+# PCA
+
+
+```{r}
+
+sqf_hist %>%
+  select(STOP_ID, STOP_FRISK_DATE, YEAR2, 
+         STOP_LOCATION_BORO_NAME, STOP_LOCATION_PRECINCT, STOP_LOCATION_X, STOP_LOCATION_Y, 
+         FRISKED_FLAG, SEARCHED_FLAG, SUSPECT_ARRESTED_FLAG,
+         SUSPECT_RACE_DESCRIPTION, SUSPECT_SEX) %>%
+  head()
+
+```
+
+
+PRECINCT, STOP_FRISK_DATE, MEDIAN_AGE, MEDIAN_HOUSING_VALUE, LESS_THAN_HS_EDUCATION, 
+BACHELORS_OR_ABOVE, UNEMPLOYMENT_RATE, PERCENT_HOUSEHOLDS_ON_SNAP, PERCENT_HOUSEHOLDS_IN_POVERTY, 
+MEDIAN_HOUSEHOLD_INCOME, TOTAL_POPULATION, PERCENT_WHITE, PERCENT_BLACK, PERCENT_HISPANIC, POPULATION_CHANGE
+
+
+```{r get ACS data for PCA}
+
+# get ACS data for NYC census tracts
+acs_data <- get_acs(
+  geography = "tract",
+  variables = c( 
+    "B01002_001",        # median age
+    "B25077_001",        # housing value
+    
+    # education
+    "B06009_001",        # total
+    "B06009_002",        # < hs
+    "B06009_005",        # bachelors
+    "B06009_006",        # graduate
+    
+    # unemployment
+    "B23025_003",        # labor force
+    "B23025_005",        # unemployed
+    
+    # SNAP
+    "B22003_001",        # total households
+    "B22003_002",        # households receiving SNAP
+    
+    # poverty
+    "B17017_001",        # total households
+    "B17017_002",        # households in poverty
+    
+    # income
+    "B19013_001"         # median household income
+  ),
+  state = "NY",
+  county = c("Bronx", "Kings", "New York", "Queens", "Richmond"),
+  summary_var = "B01001_001",
+  year = 2021,
+  survey = "acs5",
+  geometry = TRUE
+) %>%
+  select(-moe) %>%
+  pivot_wider(
+    names_from = variable,
+    values_from = estimate
+  ) %>%
+  mutate(
+    MEDIAN_AGE                    = B01002_001,
+    MEDIAN_HOUSING_VALUE          = B25077_001,
+    PERCENT_LESS_THAN_HS_EDUCATION= B06009_002 / B06009_001,
+    PERCENT_BACHELORS_OR_ABOVE    = (B06009_005 + B06009_006) / B06009_001,
+    WORKING_POPULATION            = B23025_003,
+    UNEMPLOYMENT_RATE             = B23025_005 / B23025_003,
+    PERCENT_HOUSEHOLDS_ON_SNAP    = B22003_002 / B22003_001,
+    PERCENT_HOUSEHOLDS_IN_POVERTY = B17017_002 / B17017_001,
+    MEDIAN_HOUSEHOLD_INCOME       = B19013_001,
+    TOTAL_POPULATION              = summary_est
+  ) %>%
+  select(
+    GEOID, NAME,
+    MEDIAN_AGE,
+    MEDIAN_HOUSING_VALUE,
+    PERCENT_LESS_THAN_HS_EDUCATION,
+    PERCENT_BACHELORS_OR_ABOVE,
+    WORKING_POPULATION,
+    UNEMPLOYMENT_RATE,
+    PERCENT_HOUSEHOLDS_ON_SNAP,
+    PERCENT_HOUSEHOLDS_IN_POVERTY,
+    MEDIAN_HOUSEHOLD_INCOME,
+    TOTAL_POPULATION
+  ) %>%
+  mutate(
+    across(
+      .cols = c(
+        MEDIAN_AGE,
+        MEDIAN_HOUSING_VALUE,
+        PERCENT_LESS_THAN_HS_EDUCATION,
+        PERCENT_BACHELORS_OR_ABOVE,
+        UNEMPLOYMENT_RATE,
+        PERCENT_HOUSEHOLDS_ON_SNAP,
+        PERCENT_HOUSEHOLDS_IN_POVERTY
+      ),
+      ~ round(.x, 3)
+    )
+  )
+
+acs_data %>%
+  head()
+
+# join ACS data to precincts via spatial join and aggregate to precinct level
+
+# set ACS tracts to sf
+acs_sf <- acs_data %>%
+  st_as_sf() %>%
+  st_make_valid()
+
+# set ACS and NYPD precincts to same CRS
+nypd_sf <- nypd_sf %>%
+  st_as_sf() %>%
+  st_transform(st_crs(acs_sf)) %>%
+  st_make_valid()
+
+# join ACS data to precincts via spatial join and aggregate to precinct level
+pct_ACS <- st_join(nypd_sf, acs_sf, join = st_intersects) %>%
+  group_by(Precinct) %>%
+  summarize(
+    MEDIAN_AGE = median(MEDIAN_AGE, na.rm = TRUE),
+    MEDIAN_HOUSING_VALUE = median(MEDIAN_HOUSING_VALUE, na.rm = TRUE),
+    PERCENT_LESS_THAN_HS_EDUCATION = median(PERCENT_LESS_THAN_HS_EDUCATION, na.rm = TRUE),
+    PERCENT_BACHELORS_OR_ABOVE = median(PERCENT_BACHELORS_OR_ABOVE, na.rm = TRUE),
+    UNEMPLOYMENT_RATE = median(UNEMPLOYMENT_RATE, na.rm = TRUE),
+    PERCENT_HOUSEHOLDS_ON_SNAP = median(PERCENT_HOUSEHOLDS_ON_SNAP, na.rm = TRUE),
+    PERCENT_HOUSEHOLDS_IN_POVERTY = median(PERCENT_HOUSEHOLDS_IN_POVERTY, na.rm = TRUE),
+    MEDIAN_HOUSEHOLD_INCOME = median(MEDIAN_HOUSEHOLD_INCOME, na.rm = TRUE),
+    TOTAL_POPULATION = sum(TOTAL_POPULATION, na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  mutate(Precinct = as.double(Precinct)) %>%
+  arrange(Precinct)
+
+# join ACS data with demographic data from pct_measures
+PCA_data <- pct_ACS %>%
+  st_drop_geometry(geometry) %>%
+  left_join(pct_measures, by = "Precinct")
+
+```
+
+```{r sqf data for 2021 and 2024 for PCA}
+
+# filter sqf data for 2021 and 2024 stops
+sqf_2021_2024 <- sqf_hist %>%
+  filter(YEAR2 == 2021 | YEAR2 == 2024)
+
+# select relevant stop details
+sqf_2021_2024 <- sqf_2021_2024 %>%
+  select(c("STOP_ID", "STOP_FRISK_DATE", "YEAR2",
+           "STOP_LOCATION_BORO_NAME", "STOP_LOCATION_PRECINCT",
+           "SUSPECT_RACE_DESCRIPTION"))
+
+# join SQF data with precinct-level data for each stop
+sqf_2021_2024_pca <- sqf_2021_2024 %>%
+  left_join(PCA_data, by = c("STOP_LOCATION_PRECINCT" = "Precinct")) %>%
+  select(!stopDisparityBlack)
+
+```
+
+```{r}
+
+# PCA data dimensions
+dim(sqf_2021_2024_pca)
+
+# quick overview of the data
+str(sqf_2021_2024_pca)
+
+# check for missing values
+colSums(is.na(sqf_2021_2024_pca))
+
+# select numerical columns for PCA
+pca_numerical <- sqf_2021_2024_pca %>%
+  select(-c("STOP_ID", "STOP_FRISK_DATE", "YEAR2",
+            "STOP_LOCATION_BORO_NAME", "STOP_LOCATION_PRECINCT",
+            "TOTAL_POPULATION",
+            "SUSPECT_RACE_DESCRIPTION",
+            "totalStops", "stopsBLACK", "stopsWHITE", "stopsHISPANIC",
+            "stopPropBlack", "stopPropWhite", "stopPropHisp",
+            "geometry"
+            )) %>%
+  na.omit()
+
+```
+
+```{r PCA analysis}
+
+# standardize the data
+pca_numerical_scaled <- scale(pca_numerical)
+
+# compute the correlation matrix
+corr_matrix <- cor(pca_numerical_scaled)
+
+# plot the corr matrix as a heat map
+ggcorrplot(
+  corr_matrix,
+  lab = F,                   
+  lab_size = 1.5,                 
+  tl.cex = 10,                  
+  tl.srt = 50,                  
+  hc.order = TRUE,              # hierarchical clustering for better grouping
+  outline.color = "white",      
+  ggtheme = ggplot2::theme_minimal(),  
+  # colors = c("#6D9EC1", "white", "#E46726")
+)
+
+# apply PCA
+# summary(prcomp(pca_numerical_scaled))
+data.pca <- princomp(pca_numerical_scaled)
+
+# summary of the PCA analysis
+summary(data.pca)
+
+data.pca$loadings[, 1:3] %>%
+  round(4)
+
+# scree plot to visualize the explained variance
+fviz_eig(data.pca, addlabels = T)
+
+# biplot of the first two principal components
+fviz_pca_var(data.pca, col.var = "black")
+
+# quality of representation of each variable
+fviz_cos2(data.pca, choice = "var", axes = 1:2)
+
+# biplot combined with cos2
+fviz_pca_var(data.pca, col.var = "cos2",
+             gradient.cols = c("blue", "orange", "green"),
+             repel = T)
+
+
+
+```
+
+
+Below is a clear, thematic interpretation of your PCA loadings for PC1, PC2, and PC3, based on the patterns in the correlations.
+This interpretation is strong because your variables align into socioeconomic, racial composition, and population size dimensions.
+
+⸻
+
+🎯 SUMMARY (High-level interpretation)
+
+PC1 = Socioeconomic Status (SES) Gradient
+
+Higher PC1 → wealthier, more educated, lower poverty
+Lower PC1 → poorer, less educated, higher poverty
+
+PC2 = Racial Composition (Black vs White/Hispanic)
+
+Higher PC2 → higher % Black population
+Lower PC2 → higher % White and Hispanic populations
+
+PC3 = Population Size / Urban Scale
+
+Higher PC3 → larger population counties
+Lower PC3 → smaller population counties
+
+⸻
+
+🔍 Detailed Interpretation of Each Component
+
+⸻
+
+🟦 PC1 — Socioeconomic Status (SES)
+
+Explains 57.9% of total variance → this is your dominant dimension.
+
+High positive loadings on PC1
+
+Variable	Loading	Meaning
+PERCENT_BACHELORS_OR_ABOVE	+0.306	higher education
+MEDIAN_HOUSEHOLD_INCOME	+0.308	higher income
+MEDIAN_HOUSING_VALUE	+0.277	costlier homes
+MEDIAN_AGE	+0.206	older populations
+popPropWhite	+0.290	higher White %
+
+High negative loadings on PC1
+
+Variable	Loading	Meaning
+PERCENT_LESS_THAN_HS_EDUCATION	−0.313	low education
+UNEMPLOYMENT_RATE	−0.299	more unemployment
+PERCENT_HOUSEHOLDS_ON_SNAP	−0.316	more SNAP reliance
+PERCENT_HOUSEHOLDS_IN_POVERTY	−0.296	more poverty
+popHisp	−0.251	higher Hispanic populations
+
+Interpretation
+
+PC1 cleanly represents an affluence–poverty gradient, where:
+	•	High PC1 = older, wealthier, highly educated, higher home values, white-majority counties
+	•	Low PC1 = younger, poorer, less educated, higher poverty/SNAP/unemployment, more Hispanic counties
+
+This PC is a textbook socioeconomic index.
+
+⸻
+
+🟩 PC2 — Racial Composition (Black vs White/Hispanic)
+
+Explains 16.1% of variance.
+
+Strong positive loadings
+
+Variable	Loading
+popBlack	+0.540
+popPropBlack	+0.540
+MEDIAN_AGE	+0.195
+
+Strong negative loadings
+
+Variable	Loading
+popPropWhite	−0.272
+popWhite	−0.235
+popPropHisp	−0.291
+
+Interpretation
+
+PC2 is clearly a racial composition axis:
+	•	High PC2 → counties with a high % Black population
+	•	Low PC2 → counties with high % White and/or Hispanic populations
+
+SES variables play only a minor role here (small loadings), confirming this is mostly a demographic separation independent of SES.
+
+⸻
+
+🟧 PC3 — Population Size / Urban Scale
+
+Explains 11.8% of variance.
+
+Dominant variable:
+
+Variable	Loading
+total_population	+0.698
+
+Other contributors
+
+Variable	Loading
+popWhite	+0.358
+popHisp	+0.339
+MEDIAN_AGE	+0.314
+
+Interpretation
+
+PC3 is essentially a county size / urban scale dimension:
+	•	High PC3 = large, often more diverse, more urban counties
+	•	Low PC3 = smaller rural counties
+
+Because total population dominates so strongly (0.698), PC3 is not SES or race—it is scale.
+
+Putting all three components together
+
+Component	Meaning	Variables Driving It
+PC1	Socioeconomic Status	income, education, poverty, SNAP, unemployment
+PC2	Racial Composition (Black–White/Hispanic axis)	popBlack, popPropBlack vs popPropWhite, popPropHisp
+PC3	Population Size / Urban Scale	total_population, diverse subgroup sizes
+
+What this means for your data
+
+Your counties differ primarily by:
+	1.	Economic wellbeing (PC1)
+	2.	Racial demography (PC2)
+	3.	Population scale (PC3)
+
+These three dimensions explain 85.8% of all correlation structure—excellent and very interpretable.
+
+===
+# Multiple correspondence analysis
+
+The Multiple correspondence analysis (MCA) is an extension of the simple correspondence analysis (chapter @ref(correspondence-analysis)) for summarizing and visualizing a data table containing more than two categorical variables. It can also be seen as a generalization of principal component analysis when the variables to be analyzed are categorical instead of quantitative (Abdi and Williams 2010).
+
+`MCA` is generally used to analyse a data set from survey. The goal is to identify:
+
+- A group of individuals with similar profile in their answers to the questions
+- The associations between variable categories
+
+The following analysis is the MCA computation (`FactoMineR` for the analysis) and visualization (`factoextra` for data visualization) of the SQF data set for 2021 and 2024. We use the MCA to reveal the most important variables that contribute the most in explaining the variations in the data set. We continue by predicting the results for supplementary individuals and variables and filter MCA results in order to keep only the most contributing variables.
+
+
+```{r}
+
+set.seed(1)
+sqf_small <- sqf_hist %>%
+  filter(YEAR2 == 2021 | YEAR2 == 2024) %>%
+  select(!c("STOP_ID", "STOP_FRISK_DATE", "YEAR2", "STOP_FRISK_TIME", "DAY2",
+            "STOP_DURATION_MINUTES", 
+            "LOCATION_IN_OUT_CODE", "JURISDICTION_CODE", "JURISDICTION_DESCRIPTION", 
+            "OFFICER_NOT_EXPLAINED_STOP_DESCRIPTION", "OBSERVED_DURATION_MINUTES",
+            "SUSPECTED_CRIME_DESCRIPTION",
+            "ISSUING_OFFICER_RANK", "ISSUING_OFFICER_COMMAND_CODE", "SUPERVISING_OFFICER_RANK", "SUPERVISING_OFFICER_COMMAND_CODE", "SUPERVISING_ACTION_CORRESPONDING_ACTIVITY_LOG_ENTRY_REVIEWED",
+            "DEMEANOR_OF_PERSON_STOPPED", "SUSPECT_REPORTED_AGE", "SUSPECT_HEIGHT", "SUSPECT_WEIGHT", "SUSPECT_BODY_BUILD_TYPE",
+            "SUSPECT_EYE_COLOR", "SUSPECT_HAIR_COLOR", "SUSPECT_OTHER_DESCRIPTION",
+            "SUSPECT_ARREST_OFFENSE", "SUMMONS_OFFENSE_DESCRIPTION", 
+            "STOP_LOCATION_BORO_NAME", "STOP_LOCATION_PRECINCT", "STOP_LOCATION_PRECINCT", "STOP_LOCATION_SECTOR_CODE", "STOP_LOCATION_APARTMENT", "STOP_LOCATION_FULL_ADDRESS", "STOP_LOCATION_STREET_NAME", "STOP_LOCATION_X", "STOP_LOCATION_Y",
+            "STOP_LOCATION_PATROL_BORO_NAME", "STOP_LOCATION_BORO_NAME", "RECORD_STATUS_CODE", "DEMEANOR_CODE",  "STOP_LOCATION_ZIP_CODE", "STOP_ID_ANONY", "STOP_FRISK_ID", "STOP_LOCATION_PREMISES_NAME")) 
+
+
+head(sqf_small)
+```
+
+```{r data preparation}}
+# This data is from the  NYPD Stop-Question-Frisk (SQF) historical register.
+head(sqf_hist)
+
+# The data contains 34333 rows (individual stops) and 87 columns (variables). We’ll use only some of these stops (YEAR 2021 and 2024) and variables (qualitative-only) to perform the multiple correspondence analysis. The coordinates of the remaining individuals and variables on the factor map will be predicted from the previous MCA results.
+
+sqf_small <- sqf_hist %>%
+  filter(YEAR2 == 2021 | YEAR2 == 2024,
+         SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
+  select(c("SUSPECT_RACE_DESCRIPTION", "SUSPECT_SEX", 
+           "FRISKED_FLAG", "SEARCHED_FLAG", "SUSPECT_ARRESTED_FLAG",
+           "SEARCH_BASIS_INCIDENTAL_TO_ARREST_FLAG",
+           "WEAPON_FOUND_FLAG", "FIREARM_FLAG",
+           "OTHER_CONTRABAND_FLAG"))
+
+sqf_small <- sqf_small%>%
+  mutate(across(everything(), as.factor)) %>%
+  select(where(~ dplyr::n_distinct(.) > 1)) %>%
+  select(where(~ !all(is.na(.))))
+
+sqf_small %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "value") %>%
+  count(variable, value) %>%
+  ggplot(aes(x = value, y = n, fill = variable)) +
+  geom_col() +
+  facet_wrap(~ variable, scales = "free_x") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Value", y = "Count", title = "Variable Counts")
+  
+```
+
+
+In MCA terminology, our data contains :
+- Active individuals (rows 1:34333): Individual stops that are used in the MCA.
+- Active variables (columns 5:15) : Variables that are used in the MCA.
+- Supplementary variables: They don’t participate to the MCA. The coordinates of these variables will be predicted.
+- Supplementary quantitative variables (quanti.sup): Columns 1 and 2 corresponding to the columns age and time, respectively.
+- Supplementary qualitative variables (quali.sup: Columns 3 and 4 corresponding to the columns Sick and Sex, respectively. This factor variables will be used to color individuals by groups.
+
+
+```{r MCA analysis}
+
+sqf.mca <- MCA(head(sqf_small, 1000), ncp = 5, graph = FALSE)
+
+print(sqf.mca)
+
+# MCA(X, ncp = 5, graph = TRUE)
+  # X: a df with n rows (individuals) and p columns (categorical variables)
+  # ncp: number of dimensions kept in the final results.
+  # graph: a logical value. If TRUE a graph is displayed.
+
+```
+
+
+## Visualization and interpretation
+
+We’ll use the `factoextra` R package to help in the interpretation and the visualization of the multiple correspondence analysis. No matter what function you decide to use [FactoMiner::MCA(), ade4::dudi.mca()], you can easily extract and visualize the results of multiple correspondence analysis using R functions provided in the `factoextra` R package.
+
+### Eigenvalues / Variances
+
+The proportion of variances retained by the different dimensions (axes) can be extracted using the function get_eigenvalue() [factoextra package] as follow:
+
+
+```{r eigenvalues / varianes}
+
+eig.val <- get_eigenvalue(sqf.mca)
+
+head(eig.val)
+
+# visualize the percentages of inertia explained by each MCA dimensions
+fviz_screeplot(sqf.mca, addlabels = TRUE, ylim = c(0, 45))
+
+# draw the biplot of individuals and variable categories
+fviz_mca_biplot(sqf.mca, 
+               repel = F, # Avoid text overlapping (slow if many point)
+               ggtheme = theme_minimal())
+
+```
+
+The plot above shows a global pattern within the data. Rows (individuals) are represented by blue points and columns (variable categories) by red triangles.  
+
+The distance between any row points or column points gives a measure of their similarity (or dissimilarity). Row points with similar pro!le are closed on the factor map. The same holds true for column points.
+
+### Graph of variables
+
+#### Results
+
+The function `get_mca_var()` [in `factoextra`] is used to extract the results for variable categories. This function returns a list containing the coordinates, the cos2 and the contribution of variable categories:
+
+
+```{r}
+
+var <- get_mca_var(sqf.mca)  
+var
+
+
+```
+
+The components of the get_mca_var() can be used in the plot of rows as follow:  
+- `var$coord`: coordinates of variables to create a scatter plot 
+- `var$cos2`: represents the quality of the representation for variables on the factor map. 
+- `var$contrib`: contains the contributions (in percentage) of the variables to the definition of the dimensions.
+
+
+```{r}
+
+# The different components can be accessed as follow:
+
+# Coordinates  
+head(var$coord)  
+
+# Cos2: quality on the factor map  
+head(var$cos2)  
+
+# Contributions to the principal components  
+head(var$contrib)
+
+```
+
+### Correlation between variables and principal dimensions
+
+
+```{r}
+
+fviz_mca_var(sqf.mca, choice = "mca.cor",  repel = TRUE, # Avoid text overlapping (slow)  
+             ggtheme = theme_minimal())
+
+```
+
+- The plot above helps to identify variables that are the most correlated with each dimension. The squared correlations between variables and the dimensions are used as coordinates.  
+- It can be seen that, the variables `SEARCHED_FLAG`, `SEARCH_BASIS_INCIDENTAL_TO_ARREST_FLAG` and `SUSPECT_ARRESTED_FLAG` are the most correlated with dimension 1. Similarly, the variables `SUSPECTED_CRIME_DESCRIPTION`, `WEAPON_FOUND_FLAG`, `FRISKED_FLAG`, and `FIREARM_FLAG` are the most correlated with dimension 2.
+
+### Coordinates of variable categories
+
+
+```{r}
+
+# display the coords of each variable categories in each dimension (1, 2, and 3)
+head(round(var$coord, 2), 4)
+
+# visualize only variable categories
+fviz_mca_var(sqf.mca, col.var="blue",
+             repel = TRUE, 
+             labelsize = 2,
+             ggtheme = theme_minimal())
+
+```
+
+The plot above shoes the relationships between variable categories. Categories that are close to each other are similar. It can be interpreted as follow:  
+- Variable categories with a similar profile are grouped together. 
+- Negatively correlated variable categories are positioned on opposite sides of the plot origin (opposed quadrants). 
+- The distance between category points and the origin measures the quality of the variable category on the factor map. Category points that are away from the origin are well represented on the factor map.
+
+### Quality of representation of variable categories
+
+The three dimensions 1, 2, and 3 are sufficient to retain 48% (47.9) of the total inertia (variation) contained in the data. Not all the points are equally well displayed in the three dimensions.
+
+The quality of the representation is called the *squared cosine* (cos2), which measures the degree of the association between variable categories and a particular axis. The cos2 of variable categories can be extracted as follows:
+
+
+```{r}
+
+# 
+head(var$cos2, 4)
+
+```
+
+If a variable category is well represented by two dimensions, the sum of the cos2 is closed to one. For some of the row items, more than 2 dimensions are required to perfectly represent the data.  
+
+It’s possible to color variable categories by their cos2 values using the argument col.var = “cos2”. This produces a gradient colors, which can be customized using the argument gradient.cols. For instance, gradient.cols = c("white", "blue", "red") means that:  
+- variable categories with low cos2 values will be colored in “white” 
+- variable categories with mid cos2 values will be colored in “blue” 
+- variable categories with high cos2 values will be colored in “red”
+
+
+```{r}
+
+# Color by cos2 values: quality on the factor map  
+fviz_mca_var(sqf.mca, col.var = "cos2",  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             labelsize = 2,
+             repel = TRUE, # Avoid text overlapping  
+             ggtheme = theme_minimal())
+
+```
+
+```{r}
+
+# visualize the cos2 of row categories on all the dimensions using the corrplot package:
+library("corrplot") 
+corrplot(var$cos2, is.corr=FALSE)
+
+
+# Cos2 of variable categories on Dim.1 and Dim.2  
+fviz_cos2(sqf.mca, choice = "var", axes = 1:2)
+
+```
+
+
+### Contribution of variable categories to the dimensions
+The contribution of the variable categories (in %) to the de!nition of the dimensions can be extracted as follow:
+
+The variable categories with the larger value, contribute the most to the de!nition of the dimensions. Variable categories that contribute the most to Dim.1 and Dim.2 are the most important in explaining the variability in the data set.
+
+
+```{r}
+
+head(round(var$contrib,2), 4)
+
+```
+
+The function fviz_contrib() [factoextra package] can be used to draw a bar plot of the contribution of variable categories. The R code below shows the top 15 variable categories contributing to the dimensions:
+
+
+```{r}
+
+# Contributions of rows to dimension 1  
+fviz_contrib(sqf.mca, choice = "var", axes = 1, top = 15)  
+
+# Contributions of rows to dimension 2  
+fviz_contrib(sqf.mca, choice = "var", axes = 2, top = 15)
+
+```
+

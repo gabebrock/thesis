@@ -113,7 +113,7 @@ d2 <- sqf_hist %>%
              x = SUSPECT_RACE_DESCRIPTION,
              fill = SUSPECT_RACE_DESCRIPTION)) +
   geom_col() +
-  coord_cartesian(ylim = c(0.5, 0.75)) +
+  coord_cartesian(ylim = c(0.5, 0.655)) +
   scale_fill_viridis_d(option = "magma") +
   labs(
     x = "Suspect Race",
