@@ -154,7 +154,12 @@ shooting_hist <- read_csv("r-data/nypd-crime/NYPD_Shootings_Data__Historic.csv",
                                              TRUE ~ .data$VIC_RACE))
 
 
-lintr::use_lintr(type = "tidyverse")
+if (!file.exists(".lintr")) {
+  lintr::use_lintr(type = "tidyverse")
+} else {
+  message("lintr is already configured.")
+}
+
 
 .setup_complete <- TRUE
 
