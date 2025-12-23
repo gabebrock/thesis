@@ -34,7 +34,9 @@ nyc_census2020_pct <- nyc_census2020_pct %>%
 
 # precincts, proportion of black residents
 nyc_census2020_pct <- nyc_census2020_pct %>%
-  mutate(black_prop = round(black_alone / total_population, 2))
+  mutate(black_prop = round(black_alone / total_population, 2),
+         white_prop = round(white_alone / total_population, 2),
+         hisp_prop = round(hispanic_or_latino / total_population, 2))
 
 # join nyc-census precinct-level data to spatial precinct data
 nyc_census2020_pct <- nyc_census2020_pct %>%
@@ -79,6 +81,8 @@ nyc_census2020_trc <- get_decennial(
     "P2_003N" ~ "not_hispanic_or_latino",
     .default = .
   ))
-  
+
+
+
   
 .setup_complete_census <- TRUE
