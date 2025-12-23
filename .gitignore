@@ -1,4 +1,22 @@
+# R Session/Workspace things
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
+.RDataTmp*
+
+# Quarto outputs
+_site/
+_book/
+.quarto/
+.quarto_cache/
+.cache/
+
+# OS/editor noise
+.DS_Store
+
+# Render outputs
+*.pdf
+*.html
+*.docx
+*.pptx
