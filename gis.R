@@ -59,9 +59,8 @@ nycMAP <- ggplot(nyc_sf) +
 nypd_geojson <- tempfile(fileext = ".pgeojson")
 
 # download boro boundaries json file
-download.file(
-  "https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Police_Precincts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson",
-  nypd_geojson)
+download.file("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Police_Precincts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson",
+              nypd_geojson)
 
 # read the nyc json file to a shapefile
 nypd_sf <- read_sf(nypd_geojson)
@@ -76,12 +75,20 @@ nypdMAP <- ggplot(nypd_sf) +
   theme_void()
 
 
-
 # NYC Census Tracts
 download.file("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Census_Tracts_for_2020_US_Census/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson",
               tract_geojson <- tempfile(fileext = ".pgeojson"))
 
 # read the nyc census tract json file to a shapefile
 tracts_sf <- read_sf(tract_geojson)
+
+
+# NYC Neighborhood Tabulation Areas (NTAs)
+download.file("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Neighborhood_Tabulation_Areas_2020/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson",
+              nta_geojson <- tempfile(fileext = ".pgeojson"))
+
+# read the nyc census tract json file to a shapefile
+nta_sf <- read_sf(nta_geojson)
+
 
 .setup_complete_gis <- TRUE
