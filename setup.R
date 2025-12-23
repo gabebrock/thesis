@@ -1,11 +1,15 @@
 
 # since the Quarto docs may try to install a package during rendering
-# setup CRAN mirror globally, so R knows which CRAN repository to use 
+# setup CRAN mirror globally, so R knows which CRAN repository to use
 options(repos = c(CRAN = "https://cloud.r-project.org"))
 
 
 # list of required packages
-required_packages <- c("tidyverse", "readxl", "mapview", "sf", "tinytext", "textdata", "kableExtra")
+required_packages <- c("tidyverse", "readxl", "mapview", "sf", 
+                        "kableExtra", "viridis", "gridExtra", "tidycensus",
+                        "broom", "corrr", "ggcorrplot", "factoextra", "FactoMineR", "magrittr",
+                        "MatchIt", "marginaleffects", "dots",
+                        "tinytext", "textdata", "lintr")
 
 # check and install any missing packages
 installed_packages <- rownames(installed.packages())
@@ -24,41 +28,52 @@ library(kableExtra)
 library(viridis)
 library(gridExtra)
 library(tidycensus)
-
+library(broom)
+library(corrr)
+library(ggcorrplot)
+library(factoextra)
+library(FactoMineR)
+library(magrittr)
+library(MatchIt)
+library(marginaleffects)
+library(dots)
+library(lintr)
 
 # define expected sqf data schema
 expected_sqf_data <- c(
-  "STOP_FRISK_ID", "STOP_FRISK_DATE", "STOP_FRISK_TIME",
+  "STOP_ID", "STOP_FRISK_DATE", "STOP_FRISK_TIME",
   "ISSUING_OFFICER_COMMAND_CODE", "SUPERVISING_OFFICER_COMMAND_CODE",
+  "OBSERVED_DURATION_MINUTES", "STOP_DURATION_MINUTES",
   "SUSPECT_REPORTED_AGE", "SUSPECT_WEIGHT", "SUSPECT_HEIGHT",
-  "STOP_LOCATION_PRECINCT", "STOP_LOCATION_X", "STOP_LOCATION_Y",
-  "STOP_LOCATION_ZIP_CODE"
+  "STOP_LOCATION_PRECINCT", "STOP_LOCATION_X", "STOP_LOCATION_Y", "STOP_LOCATION_ZIP_CODE"
 )
 
 # Helper function: read + normalize
 read_sqf <- function(path) {
   # treating (null) values as NA values, for simplicity in the analysis. note that where NA appears in the data, it is because the officer there was no data for that fields not that, it was not applicable to the situation.
   df <- read_excel(path, na = "(null)")
-  
+
   # add missing expected fields with NA values
   missing_sqf_data <- setdiff(expected_sqf_data, names(df))
   df[missing_sqf_data] <- NA
-  
+
   # coerce fields to standardized variable types
   df %>%
-    mutate(
-      STOP_FRISK_ID = as.double(STOP_FRISK_ID),
-      STOP_FRISK_DATE = as.Date(STOP_FRISK_DATE),
-      STOP_FRISK_TIME = as.character(STOP_FRISK_TIME),
-      ISSUING_OFFICER_COMMAND_CODE = as.character(ISSUING_OFFICER_COMMAND_CODE),
-      SUPERVISING_OFFICER_COMMAND_CODE = as.character(SUPERVISING_OFFICER_COMMAND_CODE),
-      SUSPECT_REPORTED_AGE = as.double(SUSPECT_REPORTED_AGE),
-      SUSPECT_WEIGHT = as.double(SUSPECT_WEIGHT),
-      SUSPECT_HEIGHT = as.double(SUSPECT_HEIGHT),
-      STOP_LOCATION_PRECINCT = as.double(STOP_LOCATION_PRECINCT),
-      STOP_LOCATION_X = as.double(STOP_LOCATION_X),
-      STOP_LOCATION_Y = as.double(STOP_LOCATION_Y),
-      STOP_LOCATION_ZIP_CODE = as.double(STOP_LOCATION_ZIP_CODE)
+    dplyr::mutate(
+      STOP_ID = as.double(.data$STOP_ID),
+      STOP_FRISK_DATE = as.Date(.data$STOP_FRISK_DATE),
+      STOP_FRISK_TIME = as.character(.data$STOP_FRISK_TIME),
+      ISSUING_OFFICER_COMMAND_CODE = as.character(.data$ISSUING_OFFICER_COMMAND_CODE),
+      SUPERVISING_OFFICER_COMMAND_CODE = as.character(.data$SUPERVISING_OFFICER_COMMAND_CODE),
+      OBSERVED_DURATION_MINUTES = as.double(.data$OBSERVED_DURATION_MINUTES),
+      STOP_DURATION_MINUTES = as.double(.data$STOP_DURATION_MINUTES),
+      SUSPECT_REPORTED_AGE = as.double(.data$SUSPECT_REPORTED_AGE),
+      SUSPECT_WEIGHT = as.double(.data$SUSPECT_WEIGHT),
+      SUSPECT_HEIGHT = as.double(.data$SUSPECT_HEIGHT),
+      STOP_LOCATION_PRECINCT = as.double(.data$STOP_LOCATION_PRECINCT),
+      STOP_LOCATION_X = as.double(.data$STOP_LOCATION_X),
+      STOP_LOCATION_Y = as.double(.data$STOP_LOCATION_Y),
+      STOP_LOCATION_ZIP_CODE = as.double(.data$STOP_LOCATION_ZIP_CODE)
     )
 }
 
@@ -70,8 +85,8 @@ sqf_files <- c(
   "r-data/nypd-stop/sqf-2021.xlsx",
   "r-data/nypd-stop/sqf-2020.xlsx",
   "r-data/nypd-stop/sqf-2019.xlsx",
-  "r-data/nypd-stop/sqf-2018.xlsx"
-  # "r-data/nypd-stop/sqf-2017.xlsx"
+  "r-data/nypd-stop/sqf-2018.xlsx",
+  "r-data/nypd-stop/sqf-2017.xlsx"
   # "r-data/nypd-stop/sqf-2016.csv"
   # "r-data/nypd-stop/sqf-2015.csv"
   # "r-data/nypd-stop/sqf-2014.csv"
@@ -89,13 +104,22 @@ sqf_hist <- sqf_files %>%
 BWH <- c("BLACK", "WHITE", "HISPANIC")
 
 sqf_hist <- sqf_hist %>%
-  mutate(SUSPECT_RACE_DESCRIPTION = case_when(SUSPECT_RACE_DESCRIPTION %in% 
+  dplyr::mutate(SUSPECT_RACE_DESCRIPTION = dplyr::case_when(.data$SUSPECT_RACE_DESCRIPTION %in%
                                                 c("BLACK HISPANIC", "WHITE HISPANIC") ~ "HISPANIC",
-                                              TRUE ~ SUSPECT_RACE_DESCRIPTION))
+                                              TRUE ~ .data$SUSPECT_RACE_DESCRIPTION),
+         SUSPECT_RACE_DESCRIPTION = dplyr::case_when(.data$SUSPECT_RACE_DESCRIPTION %in%
+                                                c("ASIAN/PAC.ISL") ~ "ASIAN",
+                                              TRUE ~ .data$SUSPECT_RACE_DESCRIPTION),
+         SUSPECT_RACE_DESCRIPTION = dplyr::case_when(.data$SUSPECT_RACE_DESCRIPTION %in%
+                                                c("AMER IND", "AMERICAN INDIAN/ALASKAN N") ~ "AMERICAN INDIAN/ALASKAN NATIVE",
+                                              TRUE ~ .data$SUSPECT_RACE_DESCRIPTION),
+         SUSPECT_RACE_DESCRIPTION = dplyr::case_when(.data$SUSPECT_RACE_DESCRIPTION %in%
+                                                c("MIDDLE EASTERN/SOUTHWEST") ~ "MIDDLE EASTERN/SOUTHWEST ASIAN",
+                                              TRUE ~ .data$SUSPECT_RACE_DESCRIPTION))
 
 # have months sort chronologically, not alphabetically
 sqf_hist <- sqf_hist %>%
-  mutate(MONTH2 = factor(MONTH2,
+  dplyr::mutate(MONTH2 = factor(.data$MONTH2,
                          levels = month.name,
                          ordered = TRUE))
 
@@ -122,10 +146,15 @@ shooting_hist <- read_csv("r-data/nypd-crime/NYPD_Shootings_Data__Historic.csv",
                                          col_types = cols(OCCUR_DATE = col_date(format = "%m/%d/%Y"), 
                                                           OCCUR_TIME = col_time(format = "%H:%M:%S")), 
                                          na = "null") %>%
-  mutate(PERP_RACE = case_when(PERP_RACE %in% 
+  dplyr::mutate(PERP_RACE = dplyr::case_when(.data$PERP_RACE %in%
                                                 c("BLACK HISPANIC", "WHITE HISPANIC") ~ "HISPANIC",
-                                              TRUE ~ PERP_RACE))
+                                              TRUE ~ .data$PERP_RACE)) %>%
+  dplyr::mutate(VIC_RACE = dplyr::case_when(.data$PERP_RACE %in%
+                                               c("BLACK HISPANIC", "WHITE HISPANIC") ~ "HISPANIC",
+                                             TRUE ~ .data$VIC_RACE))
 
 
+lintr::use_lintr(type = "tidyverse")
 
 .setup_complete <- TRUE
+
