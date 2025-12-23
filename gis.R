@@ -23,9 +23,9 @@ nycMAP <- ggplot(nyc_sf) +
 
 # Mapping Stops to NYC map
 # convert coordinates from sqf data to sf object
-sqf_hist <- sqf_hist %>%
-  drop_na(STOP_LOCATION_X, STOP_LOCATION_Y) %>%
-  st_as_sf(coords = c("STOP_LOCATION_X", "STOP_LOCATION_Y"), crs = 2263) %>%
+sqf_hist <- sqf_hist |>
+  drop_na(STOP_LOCATION_X, STOP_LOCATION_Y) |>
+  st_as_sf(coords = c("STOP_LOCATION_X", "STOP_LOCATION_Y"), crs = 2263) |>
   st_transform(crs = 4326)
 
 # dot stop map
@@ -35,13 +35,13 @@ nycMAP <- ggplot(nyc_sf) +
     data = sqf_hist,
     aes(geometry = geometry, color = SUSPECT_RACE_DESCRIPTION),
     size = 0.25,
-    alpha = 0.4) +         
+    alpha = 0.4) +
   coord_sf(xlim = c(-74.3, -73.65), ylim = c(40.48, 40.95)) +
   theme_void() +
   scale_color_viridis_d(option = "viridis") +
   labs(color = "Suspect Race or Ethnicity") +
   theme(
-    legend.key = element_rect(fill = NA, color = NA), legend.key.size = unit(1.0, "cm"),                        
+    legend.key = element_rect(fill = NA, color = NA), legend.key.size = unit(1.0, "cm"),
     legend.title = element_text(size = 8), legend.text = element_text(size = 7),                     
     legend.spacing.y = unit(0.2, "cm"), legend.box.spacing = unit(0.3, "cm")
   ) +
