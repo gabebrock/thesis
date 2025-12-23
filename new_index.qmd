@@ -63,16 +63,16 @@ if (!exists(".setup_complete_census") || !.setup_complete_census) {
 ```{r summary statistics for numeric variables in sqf_hist}
 
 # summary statistics for numeric variables in sqf_hist
-sqfSummary <- sqf_hist %>%
-  select(where(is.numeric)) %>%
+sqfSummary <- sqf_hist |>
+  select(where(is.numeric)) |>
   summary()
 print(sqfSummary)
 
 # stop breakdown, by race and arrest rate
-stopsByRace <- sqf_hist %>% 
-  filter(YEAR2 == 2024) %>%
-  group_by(SUSPECT_RACE_DESCRIPTION) %>%
-  count() %>%
+stopsByRace <- sqf_hist |> 
+  filter(YEAR2 == 2024) |>
+  group_by(SUSPECT_RACE_DESCRIPTION) |>
+  count() |>
   ungroup()
 
 stopsByRace
@@ -83,10 +83,10 @@ stopsByRace
 
 # total annual stops 2020-2024
 # overall number of recorded stops per year, need to eventually refactor with older data
-d1 <- sqf_hist %>%
-  filter(YEAR2 >= 2020) %>%
-  group_by(YEAR2) %>%
-  summarise(count = n()) %>%
+d1 <- sqf_hist |>
+  filter(YEAR2 >= 2020) |>
+  group_by(YEAR2) |>
+  summarise(count = n()) |>
   ggplot(aes(x = YEAR2, y = count)) +
   geom_area(fill = "steelblue", alpha = 0.6) +
   geom_line(color = "steelblue") +
@@ -98,21 +98,22 @@ d1 <- sqf_hist %>%
   geom_vline(aes(xintercept = 2022),
              color="blue", linetype="dashed")
   theme_minimal()
+  
 ```
 
 ```{r stop outcomes and initiations}
 # arrest conversions, BWH
 # calculates total stops, frisks, searches, and arrests by race
 # graphs proportion of stops that did NOT result in arrest.
-d2 <- sqf_hist %>%
-  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
-  group_by(SUSPECT_RACE_DESCRIPTION) %>%
+d2 <- sqf_hist |>
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) |>
+  group_by(SUSPECT_RACE_DESCRIPTION) |>
   summarize(stops = n(),
             frisk = sum(FRISKED_FLAG == "Y", na.rm = TRUE),
             search = sum(SEARCHED_FLAG == "Y", na.rm = TRUE),
-            arrest = sum(SUSPECT_ARRESTED_FLAG == "Y", na.rm = TRUE)) %>%
+            arrest = sum(SUSPECT_ARRESTED_FLAG == "Y", na.rm = TRUE)) |>
   mutate(non_arrest_rate = round(arrest / stops, 4)) %T>%
-  print() %>%
+  print() |>
   ggplot(aes(y = 1 - non_arrest_rate, 
              x = SUSPECT_RACE_DESCRIPTION,
              fill = SUSPECT_RACE_DESCRIPTION)) +
@@ -128,13 +129,13 @@ d2 <- sqf_hist %>%
   theme_minimal()
 
 # group percentage of stops, BWH
-d3 <- sqf_hist %>%
-  group_by(SUSPECT_RACE_DESCRIPTION) %>%
-  summarize(count = n()) %>%
-  ungroup() %>%
-  mutate(prop = round(count / sum(count), 4)) %>%
+d3 <- sqf_hist |>
+  group_by(SUSPECT_RACE_DESCRIPTION) |>
+  summarize(count = n()) |>
+  ungroup() |>
+  mutate(prop = round(count / sum(count), 4)) |>
   filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %T>%
-  print() %>%
+  print() |>
   ggplot(aes(x = SUSPECT_RACE_DESCRIPTION,
              y = prop,
              fill = SUSPECT_RACE_DESCRIPTION)) +
@@ -147,22 +148,22 @@ d3 <- sqf_hist %>%
 
 # stop initiation, BWH
 # how stops were initiated (e.g., witness, radio run, self-initiated)
-d4 <- sqf_hist %>%
-  group_by(SUSPECT_RACE_DESCRIPTION, STOP_WAS_INITIATED) %>%
-  summarize(count = n()) %>%
-  ungroup() %>%
-  group_by(STOP_WAS_INITIATED) %>%
-  mutate(prop_init = round(count / sum(count), 4)) %>%
-  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
+d4 <- sqf_hist |>
+  group_by(SUSPECT_RACE_DESCRIPTION, STOP_WAS_INITIATED) |>
+  summarize(count = n()) |>
+  ungroup() |>
+  group_by(STOP_WAS_INITIATED) |>
+  mutate(prop_init = round(count / sum(count), 4)) |>
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) |>
   pivot_wider(names_from = STOP_WAS_INITIATED,
               values_from = c(count, prop_init)) %T>%
-  print() %>%
+  print() |>
   pivot_longer(
     cols = starts_with("prop_init_"),
     names_to = "STOP_WAS_INITIATED",
     names_prefix = "prop_init_",
     values_to = "prop_init"
-  ) %>%
+  ) |>
   ggplot(aes(
     x = STOP_WAS_INITIATED,,
     y = prop_init,
@@ -192,16 +193,16 @@ d5 <- grid.arrange(d1, d2, d3, d4, nrow = 2)
 
 ```{r discovery rate by RACE}
 
-sqf_hist %>%
-  group_by(SEARCHED_FLAG, WEAPON_FOUND_FLAG) %>%
-  count(.)
+sqf_hist |>
+  group_by(SEARCHED_FLAG, WEAPON_FOUND_FLAG) |>
+  count()
 
-sqf_hist %>%
-  st_drop_geometry() %>%
-  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
-  group_by(SUSPECT_RACE_DESCRIPTION, PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG) %>%
-  count(.) %>%
-  ungroup(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG) %>%
+sqf_hist |>
+  st_drop_geometry() |>
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) |>
+  group_by(SUSPECT_RACE_DESCRIPTION, PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG) |>
+  count() |>
+  ungroup(PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG) |>
   mutate(prop = round(n / sum(n), 3))
 
 ```
@@ -210,14 +211,14 @@ sqf_hist %>%
 
 # paired boxplots of stop duration conditional on search AND arrest
 
-sqf_hist %>%
-  filter(!is.na(STOP_DURATION_MINUTES)) %>%
+sqf_hist |>
+  filter(!is.na(STOP_DURATION_MINUTES)) |>
   mutate(SUSPECT_ARRESTED_FLAG = factor(SUSPECT_ARRESTED_FLAG,
                                         levels = c("Y", "N"),
                                         labels = c("Arrested", "Not Arrested")),
          FIREARM_FLAG = factor(FIREARM_FLAG,
                                         levels = c("Y", "NA"),
-                                        labels = c("Firearm Found", "Firearm Not Found"))) %>%
+                                        labels = c("Firearm Found", "Firearm Not Found"))) |>
   ggplot(aes(x = SUSPECT_ARRESTED_FLAG,
              y = STOP_DURATION_MINUTES,
              fill = FIREARM_FLAG)) +
@@ -274,8 +275,8 @@ pct_bounds <- ggplot() +
 # NYC Residential Dominance
 # NYC map with precinct boundaries and Census Tracts
 # Color census tract wherein one BWH makes up 70 percent of the population
-p1 <- nyc_census2020_trc %>%
-  select(!c("american_indian_alone","asian_alone", "pacific_islander_alone", "population_one_race", "some_other_race_alone", "two_or_more_races")) %>%
+p1 <- nyc_census2020_trc |>
+  select(!c("american_indian_alone","asian_alone", "pacific_islander_alone", "population_one_race", "some_other_race_alone", "two_or_more_races")) |>
   mutate(
     white_share = white_alone / total_population,
     black_share = black_alone / total_population,
@@ -291,7 +292,7 @@ p1 <- nyc_census2020_trc %>%
 p1 <- st_transform(p1, st_crs(nyc_sf))
 p1 <- st_intersection(p1, nyc_sf)
   
-m1 <-  p1 %>% ggplot() +
+m1 <-  p1 |> ggplot() +
   geom_sf(aes(fill = prod_group), color = "grey70", linewidth = 0.1) +
   scale_fill_manual(
     values = c(
@@ -319,42 +320,42 @@ m1
 ```{r precinct-level stop measures, 2024}
 
 # yearly stop totals, by precinct
-sqf_hist %>%
-  group_by(STOP_LOCATION_PRECINCT, YEAR2) %>%
-  count() %>%
+sqf_hist |>
+  group_by(STOP_LOCATION_PRECINCT, YEAR2) |>
+  count() |>
   pivot_wider(names_from = YEAR2, values_from = n, names_prefix = "stops_")
 
 # initialize new df for precinct-level measures
-pct_measures <- nypd_sf %>%
-  select(Precinct) %>%
+pct_measures <- nypd_sf |>
+  select(Precinct) |>
   mutate(Precinct = as.double(Precinct))
 
 # 2024 stop totals, by precinct
-stop_totals_2024 <- sqf_hist %>%
-  filter(YEAR2 == 2024) %>%
-  st_drop_geometry() %>%
-  group_by(STOP_LOCATION_PRECINCT) %>%
+stop_totals_2024 <- sqf_hist |>
+  filter(YEAR2 == 2024) |>
+  st_drop_geometry() |>
+  group_by(STOP_LOCATION_PRECINCT) |>
   summarize(totalStops = n())
 
-pct_measures <- pct_measures %>%
+pct_measures <- pct_measures |>
   left_join(stop_totals_2024,
             by = c("Precinct" = "STOP_LOCATION_PRECINCT"))
 
 # 2024 stop racial breakdown, by precinct
-race_breakdown_2024 <- sqf_hist %>%
+race_breakdown_2024 <- sqf_hist |>
   filter(YEAR2 == 2024,
-         SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
-  group_by(STOP_LOCATION_PRECINCT, SUSPECT_RACE_DESCRIPTION) %>%
-  st_drop_geometry() %>%
-  summarize(count = n(), .groups = "drop") %>%
+         SUSPECT_RACE_DESCRIPTION %in% BWH) |>
+  group_by(STOP_LOCATION_PRECINCT, SUSPECT_RACE_DESCRIPTION) |>
+  st_drop_geometry() |>
+  summarize(count = n(), .groups = "drop") |>
   pivot_wider(names_from = SUSPECT_RACE_DESCRIPTION, values_from = count, names_prefix = "stops")
 
-pct_measures <- pct_measures %>%
+pct_measures <- pct_measures |>
   left_join(race_breakdown_2024, 
             by = c("Precinct" = "STOP_LOCATION_PRECINCT"))
 
 # 2024 stop racial proportions, by precinct
-pct_measures <- pct_measures %>%
+pct_measures <- pct_measures |>
   mutate(
     stopPropBlack = round(stopsBLACK / totalStops, 2),
     stopPropWhite = round(stopsWHITE / totalStops, 2),
@@ -362,12 +363,12 @@ pct_measures <- pct_measures %>%
   )
 
 # join 2020 census pct data to precinct measures
-pct_measures <- pct_measures %>%
+pct_measures <- pct_measures |>
   left_join(
-    nyc_census2020_pct %>%
+    nyc_census2020_pct |>
       select(precinct, total_population,
              black_alone, white_alone, hispanic_or_latino,
-             black_prop, white_prop, hisp_prop) %>%
+             black_prop, white_prop, hisp_prop) |>
       rename(popBlack = black_alone,
              popWhite = white_alone,
              popHisp  = hispanic_or_latino,
@@ -417,8 +418,8 @@ prop.test(x = c(pct_measures$stopsBLACK[1], pct_measures$popBlack[1]),
 )
 
 # repeat proportion test for all precincts
-stopDisparityZtest <- pct_measures %>%
-  rowwise() %>% # for each row (precinct)
+stopDisparityZtest <- pct_measures |>
+  rowwise() |> # for each row (precinct)
   # conduct the prop test if data is available and assign to new column
   mutate(prop_test_result = list(if (!is.na(stopsBLACK) && !is.na(popBlack) &&
                                       totalStops > 0 && total_population > 0) 
@@ -430,11 +431,11 @@ stopDisparityZtest <- pct_measures %>%
                                   } 
                                   else { NA }
                                   )
-         ) %>%
-  ungroup() %>%
-  filter(!is.na(prop_test_result)) %>%
-  select(Precinct, prop_test_result) %>%
-  mutate(tidy_result = map(prop_test_result, broom::tidy)) %>%
+         ) |>
+  ungroup() |>
+  filter(!is.na(prop_test_result)) |>
+  select(Precinct, prop_test_result) |>
+  mutate(tidy_result = map(prop_test_result, broom::tidy)) |>
   unnest(tidy_result)
 
 
@@ -490,26 +491,26 @@ ggplot(pct_measures) +
 ```{r top 10 disparate precincts}
 
 # slice 10 most stop disparate precincts
-top10disparatePrecincts <- pct_measures %>%
-  arrange(desc(stopDisparityBlack)) %>%
-  slice_head(n = 10) %>%
+top10disparatePrecincts <- pct_measures |>
+  arrange(desc(stopDisparityBlack)) |>
+  slice_head(n = 10) |>
   select(!geometry)
 
 ```
 
 ```{r map of brooklyn with brownsville highlighted}
 
-p2 <- nta_sf %>%
+p2 <- nta_sf |>
   filter(BoroName == "Brooklyn")
 
-p3 <- p1 %>% 
+p3 <- p1 |> 
   filter(BoroName == "Brooklyn")
 
-p4 <- nta_sf %>%
+p4 <- nta_sf |>
   filter(NTAName == "Brownsville")
 
-nyc_sf %>%
-  filter(BoroName == "Brooklyn") %>%
+nyc_sf |>
+  filter(BoroName == "Brooklyn") |>
   ggplot() +
   geom_sf(data = p3, aes(fill = prod_group), color = "grey70", linewidth = 0.1) +
   scale_fill_manual(
@@ -536,29 +537,29 @@ nyc_sf %>%
 
 ```{r dot density map of black population}
 
-pct_measures %>%
+pct_measures |>
   dots::dots(cols = popBlack, divisor = 150)
 
 ```
 
 ```{r missing values analysis}
 
-sqf_hist %>%
-  st_drop_geometry() %>%   
-  summarise(across(everything(), ~ sum(is.na(.)))) %>%
-  pivot_longer(everything(), names_to = "column", values_to = "na_count") %>%
-  arrange(desc(na_count)) %>%
-  # filter(na_count == 0) %>%
+sqf_hist |>
+  st_drop_geometry() |>   
+  summarise(across(everything(), ~ sum(is.na(.)))) |>
+  pivot_longer(everything(), names_to = "column", values_to = "na_count") |>
+  arrange(desc(na_count)) |>
+  # filter(na_count == 0) |>
   print()
 
 # NA values for search related fields decrease dramatically when a search is actually conducted
-sqf_hist %>%
-  st_drop_geometry() %>% 
-  filter(SEARCHED_FLAG == "Y") %>%
-  select(matches("SEARCH")) %>%
-  summarise(across(everything(), ~ sum(is.na(.)))) %>%
-  pivot_longer(everything(), names_to = "column", values_to = "na_count") %>%
-  arrange(desc(na_count)) %>%
+sqf_hist |>
+  st_drop_geometry() |> 
+  filter(SEARCHED_FLAG == "Y") |>
+  select(matches("SEARCH")) |>
+  summarise(across(everything(), ~ sum(is.na(.)))) |>
+  pivot_longer(everything(), names_to = "column", values_to = "na_count") |>
+  arrange(desc(na_count)) |>
   print()
 
 ```
@@ -572,8 +573,8 @@ The `suspect_sex` and `suspect_race_description` are the protected attributes an
 ```{r filter sqf_hist for 2024 data}
 
 # filter sqf_hist for 2024 data only
-sqf2024 <- sqf_hist %>%
-  filter(YEAR2 == 2024) %>%
+sqf2024 <- sqf_hist |>
+  filter(YEAR2 == 2024) |>
   st_drop_geometry()  # drop geometry for easier data manipulation
 
 ```
@@ -618,9 +619,9 @@ colnames(force_score_matrix) <- c("severity", "authorization") # assign column n
 
 # Step 2: create a matrix of use of force indicators for each unique stop
   # create force indicator matrix
-  force_matrix <- sqf2024 %>%
-    select(STOP_ID, all_of(force_types)) %>% # select STOP_ID and all force types
-    mutate(across(all_of(force_types), ~ ifelse(. == "Y", 1, 0))) %>% # change Y/N to 0/1
+  force_matrix <- sqf2024 |>
+    select(STOP_ID, all_of(force_types)) |> # select STOP_ID and all force types
+    mutate(across(all_of(force_types), ~ ifelse(. == "Y", 1, 0))) |> # change Y/N to 0/1
     as.data.frame() # turn matrix into data frame
   
   # assign STOP_ID as row names
@@ -646,7 +647,7 @@ weighted_score <- force_matrix %*% (force_score_matrix[, "severity"] * (1 - forc
     head(force_weighted_stops)
 
 # Step 4: merge weighted force scores back to sqf2024
-sqf2024 <- sqf2024 %>%
+sqf2024 <- sqf2024 |>
   left_join(force_weighted_stops, by = "STOP_ID")
 
 ```
@@ -654,8 +655,8 @@ sqf2024 <- sqf2024 %>%
 ```{r visualize weighted force scores}
 
 # boxplot of weighted force scores by SUSPECT_RACE_DESCRIPTION
-sqf2024 %>%
-  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
+sqf2024 |>
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) |>
   ggplot(aes(x = SUSPECT_RACE_DESCRIPTION, y = log10(weighted_score + 1))) +
   geom_boxplot() +
   labs(
@@ -669,8 +670,8 @@ library(dplyr)
 
 BWH <- c("BLACK", "WHITE", "HISPANIC")  # define races to include
 
-sqf2024 %>%
-  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
+sqf2024 |>
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) |>
   ggplot(aes(x = SUSPECT_RACE_DESCRIPTION, y = log10(weighted_score))) +
   geom_jitter(width = 0.2, alpha = 0.3, color = "darkblue", size = 0.7) +
   labs(
@@ -679,8 +680,8 @@ sqf2024 %>%
   ) +
   theme_minimal()
 
-sqf2024 %>%
-  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
+sqf2024 |>
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) |>
   ggplot(aes(x = SUSPECT_RACE_DESCRIPTION, y = weighted_score)) +
   geom_jitter(width = 0.2, alpha = 0.3, color = "darkblue", size = 0.7) +
   labs(
@@ -694,8 +695,8 @@ sqf2024 %>%
 ```{r use of force statistics}
 # ---
 # all stops that involved any use of force
-v1 <- sqf2024 %>%
-  filter(if_any(all_of(force_types), ~ . == "Y")) %>%
+v1 <- sqf2024 |>
+  filter(if_any(all_of(force_types), ~ . == "Y")) |>
   count()
 
   # all stops
@@ -706,33 +707,33 @@ v1 <- sqf2024 %>%
 
 # ---
 # count all force types used in 2024 stops
-v3 <- sqf2024 %>%
-  summarise(across(all_of(force_types), ~ sum(. == "Y", na.rm = TRUE))) %>%
+v3 <- sqf2024 |>
+  summarise(across(all_of(force_types), ~ sum(. == "Y", na.rm = TRUE))) |>
   pivot_longer(everything(), names_to = "force_type", values_to = "count")
 
 # count all force types used in 2024 stops
-v4 <- sqf2024 %>%
-  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
-  group_by(SUSPECT_RACE_DESCRIPTION) %>%
+v4 <- sqf2024 |>
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) |>
+  group_by(SUSPECT_RACE_DESCRIPTION) |>
   summarise(across(all_of(force_types), ~ sum(. == "Y", na.rm = TRUE)),
             .groups= "drop")
 
 # ---
 # total of each force group by race  
-v5 <- sqf2024 %>%
-  select(SUSPECT_RACE_DESCRIPTION, all_of(force_types)) %>%
-  group_by(SUSPECT_RACE_DESCRIPTION) %>%
+v5 <- sqf2024 |>
+  select(SUSPECT_RACE_DESCRIPTION, all_of(force_types)) |>
+  group_by(SUSPECT_RACE_DESCRIPTION) |>
   summarize(across(all_of(force_types), 
                    ~ sum(. == "Y", na.rm = TRUE)
                    ), .groups = "drop")
 
-v5 %>%
-  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
+v5 |>
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) |>
   kbl(format = "html", digits = 3)
 
 # total across force groups by race
-v6 <- v5 %>%
-  select(!c(SUSPECT_RACE_DESCRIPTION, PHYSICAL_FORCE_VERBAL_INSTRUCTION_FLAG)) %>%
+v6 <- v5 |>
+  select(!c(SUSPECT_RACE_DESCRIPTION, PHYSICAL_FORCE_VERBAL_INSTRUCTION_FLAG)) |>
   rowSums()
 
 v6
@@ -745,12 +746,12 @@ v7 <- data.frame(SUSPECT_RACE_DESCRIPTION  = c("AMERICAN INDIAN/ALASKAN NATIVE",
 # ---
 
 # stops/force total by race
-v8 <- stopsByRace %>%
-  left_join(v7, by = "SUSPECT_RACE_DESCRIPTION") %>%
+v8 <- stopsByRace |>
+  left_join(v7, by = "SUSPECT_RACE_DESCRIPTION") |>
   rename(stops_total = n)
 
 # perecent of stops that result in force by race
-v8 <- v8 %>%
+v8 <- v8 |>
   mutate(percent = force_total / stops_total * 100)
 
 # total of all stops that resulted in physical force
@@ -768,8 +769,8 @@ sum(v8$force_total) / v2 * 100
 #-----------------------------
 is_stateplane <- shooting_hist$X_COORD_CD > 500
 
-df_stateplane <- shooting_hist %>%
-  filter(is_stateplane) %>%
+df_stateplane <- shooting_hist |>
+  filter(is_stateplane) |>
   filter(PERP_RACE %in% BWH)
 
 #-----------------------------
@@ -804,12 +805,12 @@ boundary_points <- pts_stateplane[apply(near_boundary, 1, any), ]
 #-----------------------------
 boundary_points
 
-boundary_points <- boundary_points %>%
+boundary_points <- boundary_points |>
   mutate(YEAR = year(OCCUR_DATE),
          MONTH = month(OCCUR_DATE),
          DAY = day(OCCUR_DATE))
 
-nypd_boundary %>%
+nypd_boundary |>
   ggplot() +
   geom_sf(color = "black", fill = NA) +
   geom_sf(data = boundary_points, color = "red", size = 0.5) +
@@ -820,28 +821,28 @@ nypd_boundary %>%
 ```{r boundary shooting count tables}
 
 # boundary shooting count table, by year AND precinct
-boundary_points %>%
-  st_drop_geometry() %>%
-  group_by(YEAR, PRECINCT) %>%
-  count() %>%
+boundary_points |>
+  st_drop_geometry() |>
+  group_by(YEAR, PRECINCT) |>
+  count() |>
   pivot_wider(names_from = YEAR, values_from = n, names_prefix = "shoot_")
 
 # boundary shooting count table, by year AND race
-boundary_points %>%
-  st_drop_geometry() %>%
-  group_by(YEAR, PERP_RACE) %>%
-  count() %>%
+boundary_points |>
+  st_drop_geometry() |>
+  group_by(YEAR, PERP_RACE) |>
+  count() |>
   pivot_wider(names_from = YEAR, values_from = n, names_prefix = "shoot_")
 
 ```
 
 ```{r filter boundary shootings for 2024}
 
-boundary_points_2024 <- boundary_points %>%
+boundary_points_2024 <- boundary_points |>
   filter(YEAR == 2024)
 
-boundary_points_2024 %>%
-  st_drop_geometry() %>%
+boundary_points_2024 |>
+  st_drop_geometry() |>
   select(INCIDENT_KEY, OCCUR_DATE, OCCUR_TIME, PRECINCT, PERP_RACE)
   
 ```
@@ -864,8 +865,8 @@ boundary_points_2024 %>%
                           "SUSPECT_SEX", "SUSPECT_REPORTED_AGE", "SUSPECT_HEIGHT") # suspect demographics
   
   # select matching variables from sqf2024 for Mahalanobis Distance calculation
-  sqf2024_matching_maha <- sqf2024 %>%
-    select(all_of(matching_variables_maha)) %>%
+  sqf2024_matching_maha <- sqf2024 |>
+    select(all_of(matching_variables_maha)) |>
     mutate(STOP_FRISK_DATE = as.numeric(STOP_FRISK_DATE),
            STOP_FRISK_TIME = (as.POSIXct(STOP_FRISK_TIME, format = "%H:%M:%S")),
            STOP_FRISK_TIME = as.numeric(STOP_FRISK_TIME),
@@ -906,8 +907,8 @@ sqf2024_matching_maha$pvalue <- pchisq(sqf2024_matching_maha$mahalanobis, df=3, 
 # View the results
 slice_min(sqf2024_matching_maha, order_by = pvalue, n = 100)
 
-sqf2024_matching_maha %>%
-  filter(pvalue < 0.001) %>%
+sqf2024_matching_maha |>
+  filter(pvalue < 0.001) |>
   nrow()
 
 
@@ -958,7 +959,7 @@ This matching procedure relies on three decisions, determining:
 
 ```{r include = FALSE}
 
-boundary_points %>%
+boundary_points |>
   filter(YEAR == 2024,
          PERP_RACE == "BLACK",
          STATISTICAL_MURDER_FLAG == T)
@@ -977,8 +978,8 @@ boundary_points %>%
                           "SUSPECT_SEX", "SUSPECT_REPORTED_AGE", "SUSPECT_HEIGHT") # suspect demographics
 
   # select matching variables from sqf2024 for Mahalanobis Distance calculation
-    sqf2024_matching <- sqf2024 %>%
-      select(all_of(matching_variables)) %>%
+    sqf2024_matching <- sqf2024 |>
+      select(all_of(matching_variables)) |>
       mutate(STOP_FRISK_DATE = as.numeric(STOP_FRISK_DATE),
              STOP_FRISK_TIME = (as.POSIXct(STOP_FRISK_TIME, format = "%H:%M:%S")),
              STOP_FRISK_TIME = as.numeric(STOP_FRISK_TIME),
@@ -992,9 +993,9 @@ boundary_points %>%
 
 # Step 2: create dataset of shootings
   # create list of boundary shooting event dates
-  boundary_points %>% # referencing `boundary_points` from earlier analysis
-    select(INCIDENT_KEY, OCCUR_DATE, PRECINCT) %>%
-    arrange(desc(OCCUR_DATE)) %>%
+  boundary_points |> # referencing `boundary_points` from earlier analysis
+    select(INCIDENT_KEY, OCCUR_DATE, PRECINCT) |>
+    arrange(desc(OCCUR_DATE)) |>
     filter(OCCUR_DATE >= "2018-01-01") # filter for shootings since we have detailed SQF data
 
 
@@ -1013,7 +1014,7 @@ Create multiple datasets using different pre-event intervals (e.g., 1 month to 1
 # Step 3: create `treated` variable for stops, relative to shooting date
   # 3.1 create stop variable indicating treatment group relative to shooting
   make_treated <- function(data, shooting_date) {
-    data %>%
+    data |>
       mutate(
         treated = if_else(STOP_FRISK_DATE >= shooting_date, 1, 0),
         event_date = shooting_date
@@ -1021,8 +1022,8 @@ Create multiple datasets using different pre-event intervals (e.g., 1 month to 1
   }
 
     # test `treated` function
-    make_treated(sqf2024, shooting_date) %>%
-      select(STOP_FRISK_DATE, treated, event_date) %>%
+    make_treated(sqf2024, shooting_date) |>
+      select(STOP_FRISK_DATE, treated, event_date) |>
       slice_sample(n = 50) # check random sample for 1s and 0s
     
 ```
@@ -1034,7 +1035,7 @@ Create multiple datasets using different pre-event intervals (e.g., 1 month to 1
   # Always all stops withing 2 weeks for $AfterEvent$ group
   make_window <- function(data, months_back) {
     window <- interval(ymd(shooting_date), ymd(shooting_date) %m+% weeks(2))
-    data %>%
+    data |>
       filter(
         (treated == 1 & STOP_FRISK_DATE %within% window |
         (treated == 0 & STOP_FRISK_DATE >= event_date %m-% months(months_back))
@@ -1042,9 +1043,9 @@ Create multiple datasets using different pre-event intervals (e.g., 1 month to 1
   }
 
     # test window function
-    make_window(make_treated(sqf2024, shooting_date), 1) %>%
-      select(STOP_FRISK_DATE, STOP_FRISK_TIME, treated, event_date) %>%
-      slice_sample(n = 50) %>% # check random sample for dates
+    make_window(make_treated(sqf2024, shooting_date), 1) |>
+      select(STOP_FRISK_DATE, STOP_FRISK_TIME, treated, event_date) |>
+      slice_sample(n = 50) |> # check random sample for dates
       arrange(desc(STOP_FRISK_DATE))
 
 ```
@@ -1064,7 +1065,7 @@ As you move counterclockwise up the unit circle, it increases to $\frac{\pi}{2}$
 # Step 4: transform time into continuous variable (circular coordinates) for matching
   # 4.1 indicate day/night (in case I need to consider this re: Veil of Darkness)
   day_night <- function(data) {
-    data %>%
+    data |>
       mutate(
        STOP_FRISK_TIME = as.POSIXct(STOP_FRISK_TIME, format = "%H:%M:%S"),
        day_night = if_else(pm(STOP_FRISK_TIME), 1, 0 # check if time is in the PM, if yes then 1 (night)
@@ -1073,8 +1074,8 @@ As you move counterclockwise up the unit circle, it increases to $\frac{\pi}{2}$
   }
 
     # test day/night function
-    day_night(sqf2024) %>%
-      select(STOP_FRISK_TIME, day_night) %>%
+    day_night(sqf2024) |>
+      select(STOP_FRISK_TIME, day_night) |>
       slice_sample(n = 50) # check random sample for 0s and 1s
 
   # 4.2 convert time to clock circle coordinates
@@ -1083,7 +1084,7 @@ As you move counterclockwise up the unit circle, it increases to $\frac{\pi}{2}$
       day = 24*60*60
       
       # transform to clock time
-      data %>%
+      data |>
         # convert STOP_FRISK_TIME to numerical variable (unix time)
         mutate(STOP_FRISK_TIME = as.numeric(as.POSIXct(STOP_FRISK_TIME, format = "%H:%M:%S")),
                time_x = sin(STOP_FRISK_TIME * (2 * pi / day)),
@@ -1092,8 +1093,8 @@ As you move counterclockwise up the unit circle, it increases to $\frac{\pi}{2}$
     }
     
     # test clock time function
-    trans_to_clock_time(sqf2024) %>%
-      select(STOP_FRISK_TIME, time_x, time_y) %>%
+    trans_to_clock_time(sqf2024) |>
+      select(STOP_FRISK_TIME, time_x, time_y) |>
       slice_sample(n = 50) # check random sample for time_x and time_y
   
 
@@ -1113,14 +1114,14 @@ matching_variables <- c("STOP_ID", # ID for unique identification
                         "weighted_score" # outcome variable
                         ) 
 
-sqf2024_matching <- sqf2024 %>%
-  make_treated(shooting_date) %>%
-  make_window(1) %>%
-  day_night() %>%
-  trans_to_clock_time() %>%
-  select(all_of(matching_variables)) %>%
-  mutate(SUSPECT_SEX = if_else(SUSPECT_SEX == "MALE", 1, 0)) %>%
-  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
+sqf2024_matching <- sqf2024 |>
+  make_treated(shooting_date) |>
+  make_window(1) |>
+  day_night() |>
+  trans_to_clock_time() |>
+  select(all_of(matching_variables)) |>
+  mutate(SUSPECT_SEX = if_else(SUSPECT_SEX == "MALE", 1, 0)) |>
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) |>
   drop_na(all_of(matching_variables))
   
 head(sqf2024_matching, n = 25)
