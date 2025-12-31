@@ -1,0 +1,56 @@
+---
+title: "Matching: Hit Rate"
+format: html
+---
+
+15 people were shot over a 12-hour period on July 29-30, 2024 in New York City. 
+
+
+```{r}
+
+# shootings on 7/29 and 7/30
+shooting_hist |>
+      filter(OCCUR_DATE >= as.Date("2024-07-29") &
+             OCCUR_DATE <= as.Date("2024-07-30"))
+
+z1 <- shooting_hist |>
+      filter(OCCUR_DATE >= as.Date("2024-07-29") &
+             OCCUR_DATE <= as.Date("2024-07-30")) |>
+      arrange(OCCUR_DATE, OCCUR_TIME) |>
+      group_by(PRECINCT) |>
+      count()
+
+# precincts of interest
+POIs <- z1$PRECINCT
+
+
+```
+
+
+```{r}
+
+shooting_date <- as.Date("2024-07-30")
+
+sqf_hist %>%
+  # keep only stops in ±14 day window around shooting
+  mutate(
+    days_from_shooting = as.integer(STOP_FRISK_DATE - shooting_date),
+    window = case_when(
+      days_from_shooting >= -14 & days_from_shooting <= -1 ~ 0,
+      days_from_shooting >=  1  & days_from_shooting <= 14 ~ 1,
+      TRUE ~ NA
+    )
+  ) %>%
+  filter(!is.na(window)) %>%
+  filter(SUSPECT_RACE_DESCRIPTION %in% BWH) %>%
+  filter(STOP_LOCATION_PRECINCT %in% POIs) %>%
+  group_by(window, SUSPECT_RACE_DESCRIPTION, STOP_LOCATION_PRECINCT) %>%
+  summarize(
+    total_stops = n(),
+    total_seizures = sum(FIREARM_FLAG == "Y", na.rm = TRUE),
+    hit_rate = total_seizures / total_stops,
+    .groups = "drop" 
+  ) |>
+  view()
+
+```

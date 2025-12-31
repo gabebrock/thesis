@@ -1,0 +1,398 @@
+---
+title: "spatial"
+format: html
+---
+
+# Spatial Analysis
+
+## NYPD Precincts
+
+```{r create map of nypd precincts}
+
+# plot the NYPD map
+nypdMAP <- ggplot(nypd_sf) +
+  geom_sf(fill = "white", color = "black", linewidth = 0.3) +
+  theme_void()
+
+```
+
+## NYC's Five Boroughs
+
+![](../images/clipboard-1679408522.png)
+
+> “\[The above\] figure presents a map of the study area broken down by precinct and bolstered by areas of racial and ethnic dominance based on census figures indicating residential percentages greater than 70 percent for the Hispanic, non-Hispanic black, and non-Hispanic white populations.” ([Newberry, 2017, p. 313](zotero://select/library/items/3GQF23RV)) ([pdf](zotero://open-pdf/library/items/ZD4QYXA7?page=7&annotation=FVYBVE4H))
+
+```{r map of NYC, precints and residential dominance}}
+
+# NYC Precinct Distribution
+# NYC map with Precincts and Boroughs
+# with Boro lines and precint overlays, including the number of the precinct
+pct_bounds <- ggplot() +
+    geom_sf(data = nypd_sf, fill = NA, color = "grey70", size = 0.8) +
+    geom_sf(data = nyc_sf, fill = NA, color = "black", linewidth = 0.3) + 
+  geom_sf_text(data = nypd_sf, aes(label = Precinct), size = 1.75, color = "blue") +
+  coord_sf() +
+  theme_void() +
+  theme(
+    plot.title = element_text(size = 8, face = "bold", hjust = 0.5, family = "sans"),
+    plot.caption = element_text(size = 6, hjust = 0.5, family = "sans")
+  )
+  
+
+# NYC Residential Dominance
+# NYC map with precinct boundaries and Census Tracts
+# Color census tract wherein one BWH makes up 70 percent of the population
+p1 <- nyc_census2020_trc |>
+  select(!c("american_indian_alone","asian_alone", "pacific_islander_alone", "population_one_race", "some_other_race_alone", "two_or_more_races")) |>
+  mutate(
+    white_share = white_alone / total_population,
+    black_share = black_alone / total_population,
+    hisp_share  = hispanic_or_latino / total_population,
+    
+    prod_group = case_when(
+      white_share >= 0.65 ~ "Predominantly White",
+      black_share >= 0.65 ~ "Predominantly Black",
+      hisp_share  >= 0.65 ~ "Predominantly Hispanic",
+      TRUE ~ "No Predominant Group"
+    ))
+  
+p1 <- st_transform(p1, st_crs(nyc_sf))
+p1 <- st_intersection(p1, nyc_sf)
+  
+m1 <-  p1 |> ggplot() +
+  geom_sf(aes(fill = prod_group), color = "grey70", linewidth = 0.1) +
+  scale_fill_manual(
+    values = c(
+      "Predominantly White" = "greenyellow",
+      "Predominantly Black" = "dodgerblue",
+      "Predominantly Hispanic" = "darkorange",
+      "No Predominant Group" = "white"
+    ),
+    name = "Majority Group"
+  ) +
+  geom_sf(data = nyc_sf, fill = NA, color = "black", linewidth = 0.3) + 
+  theme_void() +
+  theme(legend.position = 'inside', 
+        legend.justification = c(0.1, 0.9),
+        legend.direction = 'vertical',
+        legend.title.position = "top") +
+  guides(fill = guide_legend(ncol = 1))
+
+m1
+
+```
+
+## Disparity in Stops across Precincts
+
+```{r precinct-level stop measures, 2024}
+
+# yearly stop totals, by precinct
+sqf_hist |>
+  group_by(STOP_LOCATION_PRECINCT, YEAR2) |>
+  count() |>
+  pivot_wider(names_from = YEAR2, values_from = n, names_prefix = "stops_")
+
+# initialize new df for precinct-level measures
+pct_measures <- nypd_sf |>
+  select(Precinct) |>
+  mutate(Precinct = as.double(Precinct))
+
+# 2024 stop totals, by precinct
+stop_totals_2024 <- sqf_hist |>
+  filter(YEAR2 == 2024) |>
+  st_drop_geometry() |>
+  group_by(STOP_LOCATION_PRECINCT) |>
+  summarize(totalStops = n())
+
+pct_measures <- pct_measures |>
+  left_join(stop_totals_2024,
+            by = c("Precinct" = "STOP_LOCATION_PRECINCT"))
+
+# 2024 stop racial breakdown, by precinct
+race_breakdown_2024 <- sqf_hist |>
+  filter(YEAR2 == 2024,
+         SUSPECT_RACE_DESCRIPTION %in% BWH) |>
+  group_by(STOP_LOCATION_PRECINCT, SUSPECT_RACE_DESCRIPTION) |>
+  st_drop_geometry() |>
+  summarize(count = n(), .groups = "drop") |>
+  pivot_wider(names_from = SUSPECT_RACE_DESCRIPTION, values_from = count, names_prefix = "stops")
+
+pct_measures <- pct_measures |>
+  left_join(race_breakdown_2024, 
+            by = c("Precinct" = "STOP_LOCATION_PRECINCT"))
+
+# 2024 stop racial proportions, by precinct
+pct_measures <- pct_measures |>
+  mutate(
+    stopPropBlack = round(stopsBLACK / totalStops, 2),
+    stopPropWhite = round(stopsWHITE / totalStops, 2),
+    stopPropHisp  = round(stopsHISPANIC / totalStops, 2),
+  )
+
+# join 2020 census pct data to precinct measures
+pct_measures <- pct_measures |>
+  left_join(
+    nyc_census2020_pct |>
+      select(precinct, total_population,
+             black_alone, white_alone, hispanic_or_latino,
+             black_prop, white_prop, hisp_prop) |>
+      rename(popBlack = black_alone,
+             popWhite = white_alone,
+             popHisp  = hispanic_or_latino,
+             popPropBlack = black_prop,
+             popPropWhite = white_prop,
+             popPropHisp  = hisp_prop,
+             Precinct = precinct),
+    by = "Precinct"
+  )
+
+
+```
+
+# Stop Disparity
+
+```{r black stop disparity}
+
+# calculate stop/population disparity for Blacks, by precinct 
+pct_measures$stopDisparityBlack <- pct_measures$stopPropBlack - pct_measures$popPropBlack
+
+# fit linear model
+model <- lm(stopPropBlack ~ popPropBlack, data = pct_measures)
+r2 <- summary(model)$r.squared
+r2_label <- paste0("R² = ", round(r2, 3))
+
+# plot stop disparity
+stopDisparityPlot <- ggplot(pct_measures, aes(x = popPropBlack, y = stopPropBlack)) +
+  geom_point(aes(size = totalStops, color = stopDisparityBlack)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dotted") +
+  annotate("text", x = 0.05, y = max(pct_measures$stopPropBlack), label = r2_label, hjust = 0, size = 4) +
+  scale_color_viridis_c() +
+  labs(
+    # title = "Proportion of Black Stops vs. Black Population",
+    x = "Proportion of Black Population",
+    y = "Proportion of Stops Involving Black Individuals",
+    color = "Disparity",
+    size = "Total Number of Stops"
+  ) +
+  theme_minimal() 
+
+# one-sided proportion test for stop disparity in first precinct
+prop.test(x = c(pct_measures$stopsBLACK[1], pct_measures$popBlack[1]),
+          n = c(pct_measures$totalStops[1], pct_measures$total_population[1]),
+          alternative = "greater",
+          conf.level = 0.95
+)
+
+# repeat proportion test for all precincts
+stopDisparityZtest <- pct_measures |>
+  rowwise() |> # for each row (precinct)
+  # conduct the prop test if data is available and assign to new column
+  mutate(prop_test_result = list(if (!is.na(stopsBLACK) && !is.na(popBlack) &&
+                                      totalStops > 0 && total_population > 0) 
+                                  { 
+                                    prop.test(x = c(stopsBLACK, popBlack),
+                                              n = c(totalStops, total_population),
+                                              alternative = "greater",
+                                              conf.level = 0.95)
+                                  } 
+                                  else { NA }
+                                  )
+         ) |>
+  ungroup() |>
+  filter(!is.na(prop_test_result)) |>
+  select(Precinct, prop_test_result) |>
+  mutate(tidy_result = map(prop_test_result, broom::tidy)) |>
+  unnest(tidy_result)
+
+
+```
+
+## Stop disparity for Black individuals: Hypothesis Testing
+
+`stopDisparityZtest`
+
+The two-proportion z-test statistic is calculated as:
+
+$$
+z = \frac{\hat{p}_1 - \hat{p}_2}{\sqrt{\hat{p}(1-\hat{p})(\frac{1}{n_1}+\frac{1}{n_2})}}
+$$
+
+Each row = 1 precinct Each column = a result from the two-sample proportion test comparing: $\frac{stopsBLACK}{totalStops}$ vs. $\frac{popBlack}{total_population}$
+
+| Column | Meaning |
+|--------------------------|----------------------------------------------|
+| `estimate1` | Proportion of Black stops |
+| `estimate2` | Proportion of Black residents (population) |
+| `statistic` | Chi-square test statistic |
+| `p.value` | Probability the observed difference is due to chance |
+| `conf.low` / `conf.high` | Confidence interval of difference between proportions |
+| `method` | “2-sample test for equality of proportions” |
+| `alternative` | Type of test (two-sided by default) |
+
+Is the proportion of stops involving Black individuals significantly different from their share of the population in that precinct?
+
+```{r measuring precinct-level stop disparity}
+
+ggplot(pct_measures) +
+  geom_sf(aes(fill = stopDisparityBlack)) +
+  scale_fill_viridis_c(
+    guide = guide_colorbar(
+      barwidth = unit(5, "cm"),
+      barheight = unit(0.5, "cm"),
+      title.position = "top",
+      title.hjust = 0.5
+    )
+  ) +
+  labs(
+    fill = "Stop Disparity"
+  ) +
+  theme_void() +
+  theme(legend.position = 'bottom', 
+        legend.justification = "center",
+        legend.direction = 'horizontal',
+        legend.title.position = "top")
+
+```
+
+```{r top 10 disparate precincts}
+
+# slice 10 most stop disparate precincts
+top10disparatePrecincts <- pct_measures |>
+  arrange(desc(stopDisparityBlack)) |>
+  slice_head(n = 10) |>
+  select(!geometry)
+
+```
+
+```{r map of brooklyn with brownsville highlighted}
+
+p2 <- nta_sf |>
+  filter(BoroName == "Brooklyn")
+
+p3 <- p1 |> 
+  filter(BoroName == "Brooklyn")
+
+p4 <- nta_sf |>
+  filter(NTAName == "Brownsville")
+
+nyc_sf |>
+  filter(BoroName == "Brooklyn") |>
+  ggplot() +
+  geom_sf(data = p3, aes(fill = prod_group), color = "grey70", linewidth = 0.1) +
+  scale_fill_manual(
+    values = c(
+      "Predominantly White" = "greenyellow",
+      "Predominantly Black" = "dodgerblue",
+      "Predominantly Hispanic" = "darkorange",
+      "No Predominant Group" = "white"
+    ),
+    name = "Majority Group"
+  ) +
+  geom_sf(data = p2, fill = NA, color = "grey30", linewidth = 0.3) + 
+  geom_sf(data = p4, fill = NA, color = "red", linewidth = 0.8) +
+  geom_sf(fill = NA, color = "black", linewidth = 0.3) +
+  theme_void() +
+  theme(legend.key.size = unit(0.5, "cm"),
+        legend.position = 'right', 
+        legend.justification = c(0, 0.9),
+        legend.direction = 'vertical',
+        legend.title.position = "top") +
+  guides(fill = guide_legend(ncol = 1))
+
+```
+
+```{r dot density map of black population}
+
+pct_measures |>
+  dots::dots(cols = popBlack, 
+             divisor = 500)
+
+```
+
+# Boundary Shootings
+
+```{r identify boundary shootings}
+
+#-----------------------------
+# 1. Identify state plane rows
+#-----------------------------
+is_stateplane <- shooting_hist$X_COORD_CD > 500
+
+df_stateplane <- shooting_hist |>
+  filter(is_stateplane) |>
+  filter(PERP_RACE %in% BWH)
+
+#-----------------------------
+# 2. Convert lat/long points to sf (EPSG:2263)
+#-----------------------------
+pts_stateplane <- st_as_sf(
+  df_stateplane,
+  coords = c("X_COORD_CD", "Y_COORD_CD"),
+  crs = 2263
+  )
+
+#-----------------------------
+# 3. Transform NYPD polygons to same CRS
+#-----------------------------
+nypd_sf_2263 <- st_transform(nypd_sf, 2263)
+
+# Extract NYPD boundary
+nypd_boundary <- st_boundary(nypd_sf_2263)
+
+# Points within 10 feet of boundary
+near_boundary <- st_is_within_distance(
+  pts_stateplane,
+  nypd_boundary,
+  dist = 10,
+  sparse = FALSE
+)
+
+boundary_points <- pts_stateplane[apply(near_boundary, 1, any), ]
+
+#-----------------------------
+# 5. Result
+#-----------------------------
+boundary_points
+
+boundary_points <- boundary_points |>
+  mutate(YEAR = year(OCCUR_DATE),
+         MONTH = month(OCCUR_DATE),
+         DAY = day(OCCUR_DATE))
+
+nypd_boundary |>
+  ggplot() +
+  geom_sf(color = "black", fill = NA) +
+  geom_sf(data = boundary_points, color = "red", size = 0.5) +
+  theme_minimal()
+
+```
+
+```{r boundary shooting count tables}
+
+# boundary shooting count table, by year AND precinct
+boundary_points |>
+  st_drop_geometry() |>
+  group_by(YEAR, PRECINCT) |>
+  count() |>
+  pivot_wider(names_from = YEAR, values_from = n, names_prefix = "shoot_")
+
+# boundary shooting count table, by year AND race
+boundary_points |>
+  st_drop_geometry() |>
+  group_by(YEAR, PERP_RACE) |>
+  count() |>
+  pivot_wider(names_from = YEAR, values_from = n, names_prefix = "shoot_")
+
+```
+
+```{r filter boundary shootings for 2024}
+
+boundary_points_2024 <- boundary_points |>
+  filter(YEAR == 2024)
+
+boundary_points_2024 |>
+  st_drop_geometry() |>
+  select(INCIDENT_KEY, OCCUR_DATE, OCCUR_TIME, PRECINCT, PERP_RACE)
+  
+```
