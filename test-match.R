@@ -50,6 +50,7 @@ library(sf)             # Spatial data
       )
     ) %>%
     filter(!is.na(race)) %>%
+    filter(race %in% c("Black", "White")) %>%
     select(date, stop_datetime, hour_angle, time_x, time_y,
            any_force, race, SUSPECT_REPORTED_AGE, SUSPECT_HEIGHT, SUSPECT_SEX,
            STOP_LOCATION_PRECINCT, STOP_LOCATION_X, STOP_LOCATION_Y)
@@ -124,12 +125,58 @@ library(sf)             # Spatial data
     
   }
   
+  # Combine all boundary shootings into a single dataframe
   boundary_shootings_df <- bind_rows(boundary_shootings)
+  
+  # Basic checks
+  nrow(boundary_shootings_df)
+  table(boundary_shootings_df$treated_precinct)
+  
+  # check uniqueness and clustering
+  length(unique(boundary_shootings_df$shooting_id))
+  summary(as.Date(boundary_shootings_df$date))
+  with(boundary_shootings_df, table(treated_precinct, as.Date(date)))
+  
+  #' 39 shootings are represented more than once in `boundary_shootings_df` 
+  #' likely because they intersect more than two precincts, or have 
+  #' multiple source rows per incident in shooting_hist
+  #' 
+  #' Before you build pre/post windows and match stops,  
+  #' collapse this to one row per unique shooting event.
+  
+    # Inspect the duplicates
+    dup_ids <- boundary_shootings_df$shooting_id[duplicated(boundary_shootings_df$shooting_id)]
+    length(unique(dup_ids))       # how many events have multiple rows
+    boundary_shootings_df %>%
+      filter(shooting_id %in% dup_ids) %>%
+      arrange(shooting_id) %>%
+      head(20)
+    
+    # Collapse to unique events
+    boundary_shootings_df <- boundary_shootings_df %>%
+      distinct(shooting_id, date, treated_precinct, control_precinct, x, y)
+    
+    nrow(boundary_shootings_df)                      
+    length(unique(boundary_shootings_df$shooting_id))
 
   # ============================================================================
   # STEP 3: MATCHING PROCEDURE (Mahalanobis Distance) WITH PRE/POST STOPS
   # ============================================================================
   
+    # type consistency checks
+    sqf_2024 <- sqf_2024 %>%
+      mutate(
+        STOP_LOCATION_PRECINCT = as.integer(STOP_LOCATION_PRECINCT),
+        SUSPECT_REPORTED_AGE = as.numeric(SUSPECT_REPORTED_AGE),
+        SUSPECT_HEIGHT = as.numeric(SUSPECT_HEIGHT)
+      )
+    boundary_shootings_df <- boundary_shootings_df %>%
+      mutate(
+        treated_precinct = as.integer(treated_precinct),
+        control_precinct = as.integer(control_precinct)
+      )  
+    
+    
   all_matched <- list()
   
   for(i in 1:nrow(boundary_shootings_df)) {
@@ -140,14 +187,16 @@ library(sf)             # Spatial data
     shooting_date <- shooting$date
     treated_precinct <- shooting$treated_precinct
     control_precinct <- shooting$control_precinct
-  
     
+    pre_window <- 365
+    post_window <- 14
+  
     # PRE period (both precincts)
     pre_stops <- sqf_2024 %>%
       filter(
-        STOP_LOCATION_PRECINCT %in% c(shooting$treated_precinct, shooting$control_precinct),
-        date >= shooting$date - days(90),
-        date < shooting$date
+        STOP_LOCATION_PRECINCT %in% c(treated_precinct, control_precinct),
+        date >= shooting_date - days(pre_window),
+        date < shooting_date
       ) %>%
       mutate(
         period = "pre",
@@ -159,7 +208,7 @@ library(sf)             # Spatial data
       filter(
         STOP_LOCATION_PRECINCT %in% c(treated_precinct, control_precinct),
         date >= shooting_date,
-        date <= shooting_date + days(30)
+        date <= shooting_date + days(post_window)
       ) %>%
       mutate(
         period = "post",
@@ -182,7 +231,7 @@ library(sf)             # Spatial data
     # -----------------------------
     # Matching by race
     # -----------------------------
-    for(race_group in c("Black", "White", "Hispanic")) {
+    for(race_group in c("Black", "White")) {
       
       match_data <- combined %>% filter(race == race_group)
       if(nrow(match_data) == 0) next
@@ -226,9 +275,30 @@ library(sf)             # Spatial data
   
   matched_samples_df <- bind_rows(all_matched)
   
-  # Check table
-  table(matched_samples_df$treatment, matched_samples_df$period)
-
+  # Basic checks
+    # number of matched samples
+    nrow(matched_samples_df)
+    # size of treatment and control groups pre/post
+    table(matched_samples_df$treatment, matched_samples_df$period)
+    # size of racial groups
+    table(matched_samples_df$race)
+    # number of unique shooting events represented 
+    length(unique(matched_samples_df$shooting_id))
+      #' Not all shootings yield usable matches
+      #' For ommitted shootings, either
+        #' There were no stops in the pre/post windows for either precinct, or
+        #' There were stops but no variation in treatment within a race group 
+        #' (length(unique(match_data$treatment)) < 2), 
+        #' so those race–event combinations were skipped, 
+        #' and possibly the entire event if no race yielded a match.
+    # identify shootings with no matched samples
+    setdiff(boundary_shootings_df$shooting_id,
+            unique(matched_samples_df$shooting_id))
+    
+    # store matched samples for further analysis
+    matched_events <- unique(matched_samples_df$shooting_id)
+    length(matched_events)
+    
   # ============================================================================
   # STEP 4: DIFFERENCE-IN-DIFFERENCES REGRESSION
   # ============================================================================
@@ -298,8 +368,8 @@ library(sf)             # Spatial data
 # ============================================================================
 # STEP 5: VISUAL ANALYSIS (GAM for Trends)
 # ============================================================================
-
-plot_counterfactual_trends <- function(matched_data, outcome = "any_force") {
+  
+  
   
   # Calculate days since shooting
   matched_data <- matched_data %>%
@@ -370,7 +440,6 @@ plot_counterfactual_trends <- function(matched_data, outcome = "any_force") {
     ) +
     theme_minimal() +
     theme(legend.position = "bottom")
-}
 
 # ============================================================================
 # STEP 6: REGRESSION DISCONTINUITY DESIGN
