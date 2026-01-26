@@ -24,3 +24,7 @@ _book/
 # data
 data/dc*
 data/ny*
+
+# python
+__pycache__
+python/*
