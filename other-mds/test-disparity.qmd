@@ -1,0 +1,365 @@
+---
+title: "test-disparity"
+format: pdf
+---
+
+1. Data structure and preprocessing  
+2. Computing the spatial “local hit rate” feature  
+3. Fitting the big logistic model with interactions  
+4. Generating ex ante probabilities and doing the key analyses  
+5. “Similarly situated white” counterfactual  
+6. Ranking stops and efficiency curves  
+7. Building the simplified heuristic model with sign constraints  
+8. Applying the heuristic in practice
+
+## 1. Data structure and basic preprocessing
+
+Assume a data frame `stops` with (at minimum):
+
+```r
+str(stops)
+# id                : unique stop id
+# date              : Date
+# time              : hh:mm or POSIXct
+# year              : numeric
+# precinct          : factor or integer 1–123
+# lon, lat          : numeric, WGS84
+# location_type     : factor (c("housing", "transit", "neither"))
+# inside            : factor (c("inside","outside"))
+# race              : factor (c("white","black","hispanic","asian","other"))
+# sex               : factor (c("male","female"))
+# build             : factor (c("heavy","medium","muscular","thin"))
+# age, height, weight, obs_time: numeric
+# radio_run         : 0/1
+# in_uniform        : 0/1
+# reason_*          : 0/1 indicators for each UF-250 “stop circumstance”
+# suspected_crime   : factor (e.g. "CPW", "drugs", ...)
+# weapon_found      : 0/1 (any weapon)
+# gun_found         : 0/1
+```
+
+```{r Setup and cleaning}
+library(dplyr)
+library(lubridate)
+library(glmnet)
+library(ggplot2)
+```
+
+```{r variable creation}
+
+sqf_all_clean <- sqf_all %>%
+  mutate(
+    # outcome
+    weapon_found = if_else(WEAPON_FOUND_FLAG == "Y", 1L, 0L, missing = 0L),
+
+    # suspected crime
+    suspected_crime = SUSPECTED_CRIME_DESCRIPTION,
+
+    # race (simplify labels as needed)
+    race = case_when(
+      SUSPECT_RACE_DESCRIPTION %in% c("WHITE", "WHITE HISPANIC") ~ "WHITE",
+      SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "BLACK HISPANIC") ~ "BLACK",
+      SUSPECT_RACE_DESCRIPTION %in% c("ASIAN / PACIFIC ISLANDER") ~ "ASIAN",
+      TRUE ~ "OTHER"
+    ),
+    race = factor(race),
+
+    sex   = factor(SUSPECT_SEX),
+    age   = SUSPECT_REPORTED_AGE,
+
+    precinct = factor(STOP_LOCATION_PRECINCT),
+
+    # date/time fields
+    date = STOP_FRISK_DATE,
+    year = YEAR2,
+    month = factor(MONTH2, levels = 1:12,
+                   labels = month.abb[1:12]),
+    # if DAY2 is day-of-month, derive weekday from date
+    dow   = factor(lubridate::wday(date, label = TRUE)),
+
+    # 4-hour time-of-day bins
+    time_parsed = hm(STOP_FRISK_TIME),         
+    hour = if_else(!is.na(time_parsed),
+                   hour(time_parsed), NA_integer_),
+    tod4 = cut(hour,
+               breaks = c(0,4,8,12,16,20,24),
+               include.lowest = TRUE,
+               labels = c("0-4","4-8","8-12","12-16","16-20","20-24"))
+  )
+
+```
+
+```{r Create 0/1 predictors from flags}
+
+sqf_all_clean <- sqf_all_clean %>%
+  mutate(
+    # stop reasons:
+    reason_actions_desc            = if_else(SUSPECTS_ACTIONS_DECRIPTION_FLAG == "Y", 1L, 0L, missing = 0L),
+    reason_proximity_scene         = if_else(SUSPECTS_ACTIONS_PROXIMITY_TO_SCENE_FLAG == "Y", 1L, 0L, missing = 0L),
+    reason_casing                  = if_else(SUSPECTS_ACTIONS_CASING_FLAG == "Y", 1L, 0L, missing = 0L),
+    reason_lookout                 = if_else(SUSPECTS_ACTIONS_LOOKOUT_FLAG == "Y", 1L, 0L, missing = 0L),
+    reason_drug_transaction        = if_else(SUSPECTS_ACTIONS_DRUG_TRANSACTIONS_FLAG == "Y", 1L, 0L, missing = 0L),
+    reason_concealed_weapon        = if_else(SUSPECTS_ACTIONS_CONCEALED_POSSESSION_WEAPON_FLAG == "Y", 1L, 0L, missing = 0L),
+    reason_known_to_carry_weapon   = if_else(BACKROUND_CIRCUMSTANCES_SUSPECT_KNOWN_TO_CARRY_WEAPON_FLAG == "Y", 1L, 0L, missing = 0L),
+    reason_violent_crime           = if_else(BACKROUND_CIRCUMSTANCES_VIOLENT_CRIME_FLAG == "Y", 1L, 0L, missing = 0L)
+  )
+
+```
+
+# 2. Focus on CPW and compute previous year precinct hit rate
+
+```{r Subset to CPW}
+
+sqf_cpw <- sqf_all_clean %>%
+  filter(suspected_crime == "CPW") %>%
+  filter(!is.na(year), !is.na(precinct))
+
+```
+
+```{r Year-lagged precinct hit rate}
+
+#' For each year-precinct, compute the average weapon hit rate
+#' assign as local_hit_prev for the next year's stops in that precinct
+
+# per-year, per-precinct hit rate
+precinct_year_hit <- sqf_cpw %>%
+  group_by(year, precinct) %>%
+  summarize(hit_rate = mean(weapon_found), .groups = "drop")
+
+# lag by 1 year
+precinct_year_hit_prev <- precinct_year_hit %>%
+  mutate(year_next = year + 1) %>%
+  select(year_next, precinct, hit_rate_prev = hit_rate)
+
+# join back onto CPW data
+sqf_cpw <- sqf_cpw %>%
+  left_join(precinct_year_hit_prev,
+            by = c("year" = "year_next", "precinct")) %>%
+  mutate(
+    local_hit_prev = if_else(is.na(hit_rate_prev), 0, hit_rate_prev)
+  ) %>%
+  select(-hit_rate_prev)
+```
+
+# 3. Train/test split
+
+```{r Train/test split}
+
+sort(unique(sqf_cpw$year))
+# see what you actually have; then pick ranges, e.g.:
+
+train <- sqf_cpw %>%
+  filter(year %in% c(2010, 2011))  
+
+test  <- sqf_cpw %>%
+  filter(year %in% c(2012, 2012)) 
+
+```
+
+# 4. Build a big logistic model with interactions
+
+```{r choose predictors}
+
+stop_reasons <- c(
+  "reason_actions_desc",
+  "reason_proximity_scene",
+  "reason_casing",
+  "reason_lookout",
+  "reason_drug_transaction",
+  "reason_concealed_weapon",
+  "reason_known_to_carry_weapon",
+  "reason_violent_crime"
+)
+
+vars_main <- c(
+  "race", "sex",
+  "age",
+  "precinct",
+  "month", "dow", "tod4",
+  "local_hit_prev",
+  stop_reasons
+)
+
+```
+
+```{r build model matrix with pairwise interactions}
+
+# Check which variables actually exist in train data
+existing_vars <- intersect(vars_main, names(train))
+cat("Variables found in train data:", length(existing_vars), "out of", length(vars_main), "\n")
+cat("Missing variables:", setdiff(vars_main, names(train)), "\n")
+
+# Check train dataframe itself
+cat("Train dataframe dimensions:", dim(train), "\n")
+cat("Train dataframe row count:", nrow(train), "\n")
+if (nrow(train) > 0) {
+  cat("First few column names:", head(names(train), 10), "\n")
+} else {
+  cat("Train dataframe is empty!\n")
+  stop("Train dataframe has no rows")
+}
+
+# Use only existing variables and remove those with all NAs
+vars_main_actual <- existing_vars
+
+# Remove variables with all NAs
+vars_main_actual <- vars_main_actual[!sapply(vars_main_actual, function(var) {
+  all(is.na(train[[var]]))
+})]
+
+cat("Variables after removing all-NA columns:", vars_main_actual, "\n")
+
+train_mod <- train %>%
+  select(all_of(vars_main_actual))
+
+# Remove rows with any remaining NAs to avoid model.matrix issues
+train_mod <- train_mod %>%
+  filter(complete.cases(.))
+
+cat("Train_mod dimensions after removing NAs:", dim(train_mod), "\n")
+
+# formula with all 2-way interactions, minus intercept
+fmla <- as.formula(
+  paste("~ (", paste(vars_main_actual, collapse = " + "), ")^2 - 1")
+)
+
+# Check for issues in train_mod
+cat("Checking for missing values in each column:\n")
+for (col in names(train_mod)) {
+  na_count <- sum(is.na(train_mod[[col]]))
+  if (na_count > 0) {
+    cat(col, ":", na_count, "NAs\n")
+  }
+}
+
+cat("\nChecking factor levels:\n")
+for (col in names(train_mod)) {
+  if (is.factor(train_mod[[col]])) {
+    cat(col, ":", nlevels(train_mod[[col]]), "levels\n")
+    if (nlevels(train_mod[[col]]) == 0) {
+      cat("  -> WARNING: Factor with 0 levels!\n")
+    }
+  }
+}
+
+# Try a simpler formula first
+simple_fmla <- as.formula(paste("~", paste(vars_main_actual, collapse = " + ")))
+cat("\nTrying simple formula without interactions...\n")
+X_train_simple <- model.matrix(simple_fmla, data = train_mod)
+cat("Simple model matrix dimensions:", dim(X_train_simple), "\n")
+
+# If simple works, try interactions (but limit to avoid memory issues)
+if (nrow(X_train_simple) > 0) {
+  cat("\nSimple formula worked, but interactions are too large\n")
+  cat("Using simple model without interactions to avoid memory issues\n")
+  X_train <- X_train_simple
+} else {
+  cat("\nSimple formula failed\n")
+  X_train <- X_train_simple
+}
+
+# Update response variable to match filtered data
+train_indices <- complete.cases(train_mod)
+y_train <- train$weapon_found[train_indices]
+cat("Response vector length after filtering:", length(y_train), "\n")
+cat("X_train rows:", nrow(X_train), "y_train length:", length(y_train), "\n")
+
+```
+
+```{r fit penalized logistic regression}
+
+fit_glmnet <- glmnet(
+  x = X_train,
+  y = y_train,
+  family   = "binomial",
+  alpha    = 0,    # ridge (like strong L2 regularization)
+  standardize = TRUE
+)
+
+cv_fit <- cv.glmnet(
+  x = X_train,
+  y = y_train,
+  family = "binomial",
+  alpha  = 0,
+  nfolds = 5
+)
+
+lambda_star <- cv_fit$lambda.min
+
+```
+
+# 5. Ex ante probabilities on test set
+
+```{r}
+
+X_test <- model.matrix(fmla, data = test)
+
+test$pred_prob <- as.numeric(
+  predict(cv_fit, newx = X_test, s = lambda_star, type = "response")
+)
+
+# test$pred_prob is your ex‑ante hit rate estimate for each text CPW stop
+
+```
+
+```{r summaries}
+
+# distribution overall
+mean(test$weapon_found)            # overall empirical hit rate
+mean(test$pred_prob < 0.01)        # fraction with <1% chance
+mean(test$pred_prob < 0.005)       # fraction with <0.5% chance
+
+# by race
+test %>%
+  group_by(race) %>%
+  summarize(
+    emp_hit   = mean(weapon_found),
+    pred_hit  = mean(pred_prob),
+    frac_lt1  = mean(pred_prob < 0.01),
+    n = n(),
+    .groups = "drop"
+  )
+
+```
+
+```{r efficiency curve, prop. stops vs prop weapons}
+
+test_ranked <- test %>%
+  arrange(desc(pred_prob)) %>%
+  mutate(
+    rank         = row_number(),
+    frac_stops   = rank / n(),
+    cum_weapons  = cumsum(weapon_found),
+    frac_weapons = cum_weapons / sum(weapon_found)
+  )
+
+ggplot(test_ranked, aes(x = frac_stops, y = frac_weapons)) +
+  geom_line() +
+  scale_x_log10() +
+  labs(x = "Fraction of stops (log scale)",
+       y = "Fraction of weapons recovered")
+
+```
+
+# 6. Similarly situated white counterfactuals
+
+```{r}
+
+black_test <- test %>% filter(race == "BLACK")
+
+as_if_white <- black_test
+as_if_white$race <- factor("WHITE", levels = levels(test$race))
+
+X_black       <- model.matrix(fmla, data = black_test)
+X_as_if_white <- model.matrix(fmla, data = as_if_white)
+
+p_black       <- as.numeric(predict(cv_fit, newx = X_black,       s = lambda_star, type = "response"))
+p_as_if_white <- as.numeric(predict(cv_fit, newx = X_as_if_white, s = lambda_star, type = "response"))
+
+data.frame(
+  group = c("black_empirical", "as_if_white_pred"),
+  hit   = c(mean(black_test$weapon_found), mean(p_as_if_white))
+)
+
+```
+
