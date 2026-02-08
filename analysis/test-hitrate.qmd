@@ -1,0 +1,803 @@
+---
+title: "Ordinary Least Squares Regression Analysis of NYPD Stop Racial-Outcomes"
+subtitle: "Recreation of Methods from ([Fagan, 2022](zotero://select/library/items/RTTEURCN))"
+author: "Gabriel Brock"
+date: "`r Sys.Date()`"
+output: pdf
+header-includes:
+  - \usepackage{booktabs} 
+  - \usepackage{amsmath}
+---
+
+The analytic model is a disparate treatment test. The general test for evidence of disparate treatment is a regression equation that takes the form:
+
+$$
+\text{Outcome} = \alpha + \beta_i \cdot \text{Minority} + \Sigma_i \cdot \text{Plausible Nonrace Influences} + \epsilon,
+$$
+
+and $Outcome$ is the event or status of interest, $Minority$ is an indicator for the racial composition or status of the unit observed, $Plausible Nonrace Influences$ are a set of variables representing non-race factors that also might influence the outcome, and ε is an error term that captures the variation in the outcome that cannot be explained by either Minority or Plausible Non-race Influences.These models may include nonrace influences that are correlated with race.141 Each model controls for area influences by clustering standard errors by precinct, but also by including precinct fixed effects to capture unobserved variance in social and crime conditions at the local level. ([Fagan, 2022, p. 1624](zotero://select/library/items/RTTEURCN)) ([pdf](zotero://open-pdf/library/items/AJL537Z5?page=42&annotation=93HZCCCM))
+
+Each model controls for area influences by clustering standard errors by precinct, but also by including precinct fixed effects to capture unobserved variance in social and crime conditions at the local level.
+
+“The goal in specifying these models is to identify the effects of race on outcomes after controlling for other, potentially relevant factors, even if they are correlated with race. Failure to do so raises the risk of “omitted variable bias,” which could lead to erroneous conclusions about the effects of variables that do appear in a regression test.” ([Fagan, 2022, p. 1625](zotero://select/library/items/RTTEURCN)) ([pdf](zotero://open-pdf/library/items/AJL537Z5?page=43&annotation=MPE8RA48))
+
+## Regression Methods
+
+The test for racial effects is a series of Ordinary Least Squares (OLS) regression models. OLS is used to estimate how race and other covariates influence police officer allocation, stop rates, and stop outcomes.
+
+For the analysis of police officer allocation across precincts, the dependent variable is the logged estimate of officer assignments. Logging the allocation measure corrects for overdispersion and limits the influence of extreme values, improving model stability and interpretability.
+
+For analyses of **stop rates** and **stop outcomes**, I use OLS models with **continuous and binary dependent variables**. Although OLS is traditionally used for continuous outcomes, it can also be applied to dichotomous outcomes to estimate changes in probability associated with unit changes in predictor variables. In this context, coefficients represent the change in the probability that an outcome (e.g., arrest, summons, or seizure) occurs.
+
+The general model specification is:
+
+$$
+Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + \dots + \beta_k X_{ki} + u_i
+$$
+
+where:
+
+- $Y_i$ is the outcome of interest (often coded 0/1), 
+- $\beta_0$ is the intercept, and 
+- each $\beta_j$ estimates the effect of a one-unit change in predictor $X_j$, 
+
+holding other variables constant. In multivariate models, each coefficient reflects the independent effect of its associated predictor.
+
+Coefficients can be positive or negative, indicating increases or decreases in the probability of the outcome. Larger absolute values indicate stronger relationships, and statistical significance indicates confidence in the estimated effect.
+
+A key advantage of the OLS specification used here is interpretability: coefficients can be converted into percentage changes in outcome probability, allowing straightforward interpretation of racial effects on stop outcomes.
+
+Race is the primary predictor of interest and is included alongside controls in a vector of covariates. The modeling strategy proceeds iteratively, beginning with a baseline model that includes race and fixed effects for year and police precinct, and then progressively adding additional sets of predictors organized by conceptual category.
+
+The advantage of this formulation is that each $\beta_j$ can be interpreted as the percent that the predictor increases (or decreases) the probability of the outcome variable. In this case, we are interested in the outcome of a Terry stop, and race the predictor of interest—is included in the vector x of predictors. 
+
+Accordingly, we can calculate the percent increase or decrease in the outcome or response variable based on a unit change in the race predictor. We iterate models starting with a baseline model with only race and fixed effects for each year and police precinct and then extend the model to include additional groups of predictors organized in categories of interest.
+
+```{r Set up and load data}
+
+library(tidyverse)
+library(data.table)
+library(lubridate)
+library(fixest)
+library(ggplot2)
+library(sf)
+
+# sqf_hist <- readRDS("../data/sqf_hist.rds")
+
+# sqf_all_clean from /data/read_sqf-csv.R
+sqf_all_clean <- sqf_all_clean
+
+# Basic cleaning
+sqf_all_clean <- sqf_all_clean %>%
+  # create shorter variable names for freqent variables
+  mutate(
+    year    = year(as.Date(STOP_FRISK_DATE)),
+    month   = month(as.Date(STOP_FRISK_DATE)),
+    pct     = as.numeric(STOP_LOCATION_PRECINCT),
+    race    = factor(SUSPECT_RACE_DESCRIPTION), 
+    age     = as.numeric(SUSPECT_REPORTED_AGE),
+    female  = if_else(SUSPECT_SEX == "F", 1L, 0L)
+  )
+  
+# quick text for Black, White, and Hispanic stops
+BWH <- c("BLACK", "WHITE", "HISPANIC")
+  
+
+```
+
+```{r code key outcomes}
+
+# create unified force variable
+sqf_all_clean <- sqf_all_clean %>%
+  mutate(
+    any_force = if_else(
+      PHYSICAL_FORCE_CEW_FLAG == "Y" |
+      PHYSICAL_FORCE_DRAW_POINT_FIREARM_FLAG == "Y" |
+      PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG == "Y" |
+      PHYSICAL_FORCE_OC_SPRAY_USED_FLAG == "Y" |
+      PHYSICAL_FORCE_OTHER_FLAG == "Y" |
+      PHYSICAL_FORCE_RESTRAINT_USED_FLAG == "Y" |
+      # PHYSICAL_FORCE_VERBAL_INSTRUCTION_FLAG == "Y" |
+      PHYSICAL_FORCE_WEAPON_IMPACT_FLAG == "Y",
+      1L, 0L, missing = 0L
+    )
+  )
+
+# create key outcome variables
+sqf_all_clean <- sqf_all_clean %>%
+  mutate(
+    arrest    = if_else(SUSPECT_ARRESTED_FLAG == "Y", 1L, 0L),
+    summons   = if_else(SUMMONS_ISSUED_FLAG == "Y", 1L, 0L),
+    sanction  = if_else(arrest == 1 | summons == 1, 1L, 0L),
+    contrab   = if_else(OTHER_CONTRABAND_FLAG == "Y", 1L, 0L),
+    gun       = if_else(WEAPON_FOUND_FLAG == "Y" & FIREARM_FLAG == "Y", 1L, 0L, missing = 0L),
+    knife     = if_else(WEAPON_FOUND_FLAG == "Y" & KNIFE_CUTTER_FLAG == "Y", 1L, 0L, missing = 0L),
+    any_weap  = if_else(gun == 1 | knife == 1, 1L, 0L),
+    any_seiz  = if_else(contrab == 1 | any_weap == 1, 1L, 0L),
+    frisk     = if_else(FRISKED_FLAG == "Y", 1L, 0L),
+    search    = if_else(SEARCHED_FLAG == "Y", 1L, 0L),
+    force     = if_else(any_force == 1, 1L, 0L)
+  )
+
+# table of key outcomes
+sqf_all_clean %>%
+  summarize(
+    total_stops = n(),
+    arrest_rate = mean(arrest, na.rm = TRUE) * 100,
+    summons_rate = mean(summons, na.rm = TRUE) * 100,
+    sanction_rate = mean(sanction, na.rm = TRUE) * 100,
+    contrab_rate = mean(contrab, na.rm = TRUE) * 100,
+    gun_rate = mean(gun, na.rm = TRUE) * 100,
+    knife_rate = mean(knife, na.rm = TRUE) * 100,
+    any_weap_rate = mean(any_weap, na.rm = TRUE) * 100,
+    any_seiz_rate = mean(any_seiz, na.rm = TRUE) * 100,
+    frisk_rate = mean(frisk, na.rm = TRUE) * 100,
+    search_rate = mean(search, na.rm = TRUE) * 100,
+    force_rate = mean(force, na.rm = TRUE) * 100
+  ) %>%
+  print()
+
+```
+
+```{r Build Reasonable Suspicion (RS) factors}
+
+yn <- function(x) as.integer(x == "Y")
+
+# binary day/night variable
+sqf_all_clean <- sqf_all_clean %>%
+  mutate(
+    stop_time_hr = as.integer(substr(STOP_FRISK_TIME, 1, 2)),
+    day_stop = if_else(stop_time_hr >= 6 & stop_time_hr < 18, 1L, 0L, missing = 0L)
+  )
+
+sqf_all_clean <- sqf_all_clean %>%
+  mutate(
+    RS_fits    = yn(SUSPECTS_ACTIONS_DECRIPTION_FLAG),
+    RS_furtive = yn(SUSPECTS_ACTIONS_IDENTIFY_CRIME_PATTERN_FLAG),
+    RS_crimloc = yn(SUSPECTS_ACTIONS_PROXIMITY_TO_SCENE_FLAG) + yn(day_stop),
+    RS_casing  = yn(SUSPECTS_ACTIONS_CASING_FLAG) + yn(SUSPECTS_ACTIONS_LOOKOUT_FLAG),
+    RS_other   = yn(SUSPECTS_ACTIONS_OTHER_FLAG) + yn(OTHER_PERSON_STOPPED_FLAG),
+    RS_drug    = yn(SUSPECTS_ACTIONS_DRUG_TRANSACTIONS_FLAG),
+    RS_suspobj = yn(SUSPECTS_ACTIONS_CONCEALED_POSSESSION_WEAPON_FLAG),
+    RS_appear  = yn(BACKROUND_CIRCUMSTANCES_SUSPECT_KNOWN_TO_CARRY_WEAPON_FLAG),
+    RS_violent = yn(BACKROUND_CIRCUMSTANCES_VIOLENT_CRIME_FLAG)
+  )
+
+```
+
+
+# Precinct‑level stop allocation vs crime and race
+
+```{r Precinct‑level stop allocation vs crime and race}
+
+# stops per precinct-year
+pct_year <- sqf_all_clean %>%
+  group_by(pct, year) %>%
+  summarise(
+    stops = n(),
+    .groups = "drop"
+  ) %>%
+  mutate(log_stops = log(stops + 1),
+         pct = as.numeric(pct))
+
+print(pct_year)
+str(pct_year)
+
+
+```
+
+```{r }
+
+# join precinct‑year demographics and crime
+pct_demo  <- readRDS("../data/pct_demo.rds")
+pct_crime <- readRDS("../data/pct_crime.rds")
+
+# Remove geometry if present to avoid sf join issues
+if (inherits(pct_demo, "sf")) {
+  pct_demo <- st_drop_geometry(pct_demo)
+}
+if (inherits(pct_crime, "sf")) {
+  pct_crime <- st_drop_geometry(pct_crime)
+}
+
+pct_year <- pct_year %>%
+  # get crime and demo data from /analysis/pct_crime.R and /analysis/tracts_to_precincts.R
+  left_join(pct_crime, by = c("pct", "year")) %>%
+  left_join(pct_demo, by = c("pct", "year")) 
+
+# filter to pre-2024 b/c I don't have ACS5 data for 2024 yet
+pct_year <- pct_year %>%
+  filter(year != 2024)
+
+# drop imaginary precinct from 2017
+pct_year <- pct_year %>%
+  filter(pct < 124)
+
+```
+
+```{r variables for ols}
+
+# Convert to sf
+nypd_sf <- readRDS("../data/sf/nypd_sf.rds")
+
+# Drop geometry from pct_year if it exists
+if (inherits(pct_year, "sf")) {
+  pct_year <- st_drop_geometry(pct_year)
+}
+
+# Join and handle geometries
+pct_year_ols <- pct_year %>%
+  left_join(st_drop_geometry(nypd_sf), by = c("pct" = "Precinct"))
+
+# Add geometry back from nypd_sf
+pct_year_ols <- pct_year_ols %>%
+  left_join(nypd_sf %>% select(Precinct, geometry), by = c("pct" = "Precinct")) %>%
+  select(-any_of(c("OBJECTID", "Shape__Length", "Shape__Area")))
+
+pct_year_ols <- sf::st_as_sf(pct_year_ols)
+
+# Then you can safely calculate area and other metrics
+pct_year_ols <- pct_year_ols %>%
+  st_transform(crs = 3857) %>% # project to meters so I can calculate area
+  mutate(
+    area_sq_meters = st_area(geometry),
+    area_sq_miles  = as.numeric(area_sq_meters) * 3.861e-7, # square-meters to square-miles
+    pct_black      = black_pop / total_pop,
+    pct_white      = white_pop / total_pop,
+    pct_hisp       = hisp_pop / total_pop,
+    pop_density    = total_pop / area_sq_miles,
+    pct_18_24      = age_18_24_pop / total_pop,
+    
+    # Calculate nonviolent crime by summing relevant categories
+    nonviolent_crime = crime_Weapons + crime_Property + crime_Drug + 
+                       crime_Trespass + crime_QualityOfLife + crime_Other,
+    
+    # Log crime rates per 1000 people
+    log_violent_rate    = log((crime_Violent + 1) / total_pop * 1000),
+    log_nonviolent_rate = log((nonviolent_crime + 1) / total_pop * 1000)
+  )
+
+```
+
+```{r}
+
+# create data subsets for different mayoral administrations
+pct_year_ols_adams <- pct_year_ols %>%
+  filter(year >= 2022)
+
+pct_year_ols_blasio <- pct_year_ols %>%
+  filter(year >= 2014 & year <= 2021)
+
+pct_year_ols_bloomberg <- pct_year_ols %>%
+  filter(year <= 2013)
+
+```
+
+
+
+```{r}
+
+# When Black share in a precinct rises, do stops rise more than crime would predict?
+
+# OLS Regressions of Precinct Officer Allocations (logged) by Precinct Racial Composition and  Social and Crime Conditions, 2017 - 2023 (b, SE, p)
+mod_alloc <- feols(
+  log_stops ~ pct_black + pct_hisp + log_violent_rate + log_nonviolent_rate +
+    pop_density + pct_18_24 + pct_public_housing + factor(year) | BoroName,
+  data = pct_year_ols,
+  cluster = "pct"
+)
+
+summary(mod_alloc)
+
+```
+
+**`pct_black` = $0.74$ ($p ≈ 0.07$, “.”)**
+Holding crime rates, population density, percent-aged 18–24, and borough constant, precincts with a 10 percentage‑point higher Black share are associated with about a $0.8631 \times 0.10 = 0.0863$ higher log_stops.
+
+Back in levels, `exp(0.0863) ≈ 1.09` or roughly $9\%$ more stops.
+This is strongly significant ($p ≈ 0.0016$), and the direction and magnitude are exactly what the Fagan 2022 finds: conditional on crime, more Black precincts have more police activity.
+
+**`pct_hisp` = $0.27$ (ns)**
+Point estimate positive, but nowhere near significant with current SEs.
+
+When Fagan 2022 adds crime and borough FE, the Black effect stays robust but the Hispanic effect often weakens or flips. My finding is consistent with that broad pattern: the Black share is the more robust driver.
+
+```{r}
+
+# create Precinct Racial Composition variable
+
+
+
+```
+
+
+
+```{r}
+
+# OLS Regression of Stops per 1,000 Persons (Logged), Controlling for Crime Rate and Socioeconomic Factors, NYPD Precincts, 2017 - 2023 (b, SE, p)
+
+
+```
+
+# Monthly Analysis with Lagged Crime Rates
+
+To estimate the effect of race on officer allocation while controlling for lagged crime rates, we need to restructure the data from annual to monthly observations and create one-month lags of crime rates. This approach assumes that police respond to changes in crime rates from month t with increased police presence in month t+1.
+
+```{r Create monthly precinct-level data}
+
+# Create month-year variable and aggregate to monthly level
+pct_month <- sqf_all_clean %>%
+  mutate(
+    month = lubridate::month(STOP_FRISK_DATE),
+    year_month = format(STOP_FRISK_DATE, "%Y-%m")
+  ) %>%
+  group_by(pct, year_month, month, year) %>%
+  summarise(
+    stops = n(),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    log_stops = log(stops + 1),
+    pct = as.numeric(pct),
+    # Create date variable for proper ordering
+    date = as.Date(paste0(year_month, "-01"))
+  ) %>%
+  arrange(pct, date)
+
+print(pct_month)
+
+```
+
+```{r Join monthly crime data}
+
+# We need to create monthly crime data from the annual crime data
+# First, let's examine the crime data structure
+str(pct_crime)
+
+# Since we only have annual crime data, we'll distribute it evenly across months
+pct_month_crime <- pct_crime %>%
+  # join total pop from pct_demo
+  left_join(pct_demo %>% select(pct, year, total_pop), by = c("pct", "year")) %>%
+  # Expand each annual observation to 12 monthly observations
+  tidyr::uncount(12) %>%
+  group_by(pct, year) %>%
+  mutate(
+    month = row_number(),
+    year_month = format(as.Date(paste0(year, "-", month, "-01")), "%Y-%m"),
+    # Calculate nonviolent crime by summing relevant categories
+    nonviolent_crime = crime_Weapons + crime_Property + crime_Drug + 
+                       crime_Trespass + crime_QualityOfLife + crime_Other,
+    
+    # Log crime rates per 1000 people
+    violent_rate    = log((crime_Violent + 1) / total_pop * 1000),
+    nonviolent_rate = log((nonviolent_crime + 1) / total_pop * 1000),
+    # Distribute annual crime evenly across months (this is an approximation)
+    violent_rate_month = violent_rate / 12,
+    nonviolent_rate_month = nonviolent_rate / 12,
+    date = as.Date(paste0(year_month, "-01")),
+  ) %>%
+  ungroup() %>%
+  select(pct, year_month, month, year, date, violent_rate_month, nonviolent_rate_month)
+
+str(pct_month_crime)
+
+```
+
+```{r Join monthly crime data with geometry}
+
+# Join with precinct geometry from nypd_sf - but don't convert to sf yet
+pct_month_crime <- pct_month_crime %>%
+  left_join(st_drop_geometry(nypd_sf) %>% select(Precinct), by = c("pct" = "Precinct"))
+
+# Calculate area for each precinct separately (no sf joins)
+pct_areas <- nypd_sf %>%
+  filter(st_is_valid(geometry)) %>%  # Filter out invalid geometries
+  mutate(
+    area_sq_meters = as.numeric(st_area(geometry)),
+    area_sq_miles = area_sq_meters * 3.861e-7
+  ) %>%
+  select(Precinct, area_sq_meters, area_sq_miles) %>%
+  st_drop_geometry()
+
+# Check which data frames are sf objects
+cat("pct_month is sf:", inherits(pct_month, "sf"), "\n")
+cat("pct_month_crime is sf:", inherits(pct_month_crime, "sf"), "\n") 
+cat("pct_demo is sf:", inherits(pct_demo, "sf"), "\n")
+
+# Join with stops data
+pct_month_full <- st_drop_geometry(pct_month) %>%
+  left_join(pct_month_crime, by = c("pct", "year_month", "month", "year", "date")) %>%
+  left_join(pct_demo, by = c("pct", "year")) %>%
+  mutate(
+    pct_black      = black_pop / total_pop,
+    pct_white      = white_pop / total_pop,
+    pct_hisp       = hisp_pop / total_pop,
+    pct_18_24      = age_18_24_pop / total_pop,
+    log_stops_rate = log((stops + 1) / total_pop * 1000)
+  ) %>%
+  filter(!is.na(violent_rate_month), !is.na(pct_black)) %>%
+  left_join(pct_areas, by = c("pct" = "Precinct")) %>%
+  mutate(pop_density = total_pop / area_sq_miles)
+
+# Sort by precinct and date for proper lagging
+pct_month_full <- pct_month_full %>%
+  arrange(pct, date)
+
+print(pct_month_full)
+
+```
+
+```{r Create lagged variables}
+
+# Create one-month lagged crime rates by precinct
+pct_month_lagged <- pct_month_full %>%
+  group_by(pct) %>%
+  arrange(date) %>%
+  mutate(
+    # One-month lagged crime rates
+    lag_violent_rate = dplyr::lag(violent_rate_month, 1),
+    lag_nonviolent_rate = dplyr::lag(nonviolent_rate_month, 1),
+    
+    # Also create lagged stops to capture persistence in police allocation
+    lag_stops = dplyr::lag(stops, 1),
+    lag_log_stops = dplyr::lag(log_stops, 1)
+  ) %>%
+  ungroup() %>%
+  # Remove first month for each precinct due to missing lag
+  filter(!is.na(lag_violent_rate))
+
+# Summary statistics
+cat("Monthly observations with lagged variables:", nrow(pct_month_lagged), "\n")
+cat("Number of precincts:", length(unique(pct_month_lagged$pct)), "\n")
+cat("Date range:", min(pct_month_lagged$date), "to", max(pct_month_lagged$date), "\n")
+
+```
+
+```{r Stop allocation model with lagged crime rates}
+
+# Model 1: Basic model with lagged crime rates
+mod_alloc_lag1 <- feols(
+  log_stops ~ pct_black + pct_hisp + 
+    lag_violent_rate + lag_nonviolent_rate +
+    pop_density + pct_18_24 + pct_public_housing + 
+    factor(year) + factor(month) | BoroName,
+  data = pct_month_lagged,
+  cluster = "pct"
+)
+
+summary(mod_alloc_lag1)
+
+# Model 2: Include lagged stops to capture persistence
+mod_alloc_lag2 <- feols(
+  log_stops ~ pct_black + pct_hisp + 
+    lag_violent_rate + lag_nonviolent_rate +
+    lag_log_stops +
+    pop_density + pct_18_24 + pct_public_housing + 
+    factor(year) + factor(month) | BoroName,
+  data = pct_month_lagged,
+  cluster = "pct"
+)
+
+summary(mod_alloc_lag2)
+
+# Model 3: Dynamic model with both current and lagged crime rates
+mod_alloc_dynamic <- feols(
+  log_stops ~ pct_black + pct_hisp + 
+    violent_rate_month + nonviolent_rate_month +
+    lag_violent_rate + lag_nonviolent_rate +
+    lag_log_stops +
+    pop_density + pct_18_24 + pct_public_housing + 
+    factor(year) + factor(month) | BoroName,
+  data = pct_month_lagged,
+  cluster = "pct"
+)
+
+summary(mod_alloc_dynamic)
+
+```
+
+```{r Compare models}
+
+# Compare the coefficient on pct_black across models
+etable(mod_alloc_lag1, mod_alloc_lag2, mod_alloc_dynamic,
+       headers = c("Lagged Crime Only", "With Lagged Stops", "Dynamic Model"),
+       keep = c("pct_black", "pct_hisp"))
+
+# Test if lagged crime rates improve model fit
+# (Note: feols doesn't have built-in likelihood ratio tests for fixed effects,
+# so we'll compare adjusted R-squared and standard errors)
+
+cat("Model comparison:\n")
+cat("Model 1 Adj R2:", summary(mod_alloc_lag1)$r2_within, "\n")
+cat("Model 2 Adj R2:", summary(mod_alloc_lag2)$r2_within, "\n") 
+cat("Model 3 Adj R2:", summary(mod_alloc_dynamic)$r2_within, "\n")
+
+```
+
+## Interpretation of Results
+
+The monthly models with lagged crime rates provide several insights:
+
+1. **Race Effect Persistence**: The coefficient on `pct_black` in the lagged models shows whether racial disparities in officer allocation persist after controlling for how police respond to previous month's crime rates.
+
+2. **Police Responsiveness**: The coefficients on `lag_violent_rate` and `lag_nonviolent_rate` measure how responsive police allocation is to crime rates in the previous month.
+
+3. **Allocation Persistence**: The `lag_log_stops` coefficient captures the inertia in police allocation - whether high-stop months tend to be followed by high-stop months.
+
+4. **Dynamic Adjustment**: By including both current and lagged crime rates, we can see if police adjust allocation based on recent crime trends or just current levels.
+
+**Key Interpretation**: If the `pct_black` coefficient remains significant and positive in the lagged models, this suggests that racial disparities in officer allocation exist above and beyond what can be explained by police responding to lagged crime rates. This would provide stronger evidence of disparate treatment in resource allocation.
+
+# Stop‑level models
+
+```{r}
+
+discarded_vars <- c(
+  "BACKROUND_CIRCUMSTANCES_SUSPECT_KNOWN_TO_CARRY_WEAPON_FLAG",
+  "BACKROUND_CIRCUMSTANCES_VIOLENT_CRIME_FLAG",
+  "FRISKED_FLAG",
+  "FIREARM_FLAG",
+  "KNIFE_CUTTER_FLAG",
+  "OTHER_CONTRABAND_FLAG",
+  "OTHER_PERSON_STOPPED_FLAG",
+  "PHYSICAL_FORCE_CEW_FLAG",
+  "PHYSICAL_FORCE_DRAW_POINT_FIREARM_FLAG",
+  "PHYSICAL_FORCE_HANDCUFF_SUSPECT_FLAG",
+  "PHYSICAL_FORCE_OC_SPRAY_USED_FLAG",
+  "PHYSICAL_FORCE_OTHER_FLAG",
+  "PHYSICAL_FORCE_RESTRAINT_USED_FLAG",
+  "PHYSICAL_FORCE_WEAPON_IMPACT_FLAG",
+  "SEARCHED_FLAG",
+  "STOP_FRISK_DATE",
+  "STOP_FRISK_TIME",
+  "STOP_LOCATION_PRECINCT",
+  "SUMMONS_ISSUED_FLAG",
+  "SUSPECT_ARRESTED_FLAG",
+  "SUSPECT_RACE_DESCRIPTION",
+  "SUSPECT_REPORTED_AGE",
+  "SUSPECT_SEX",
+  "SUSPECTED_CRIME_DESCRIPTION",
+  "SUSPECTS_ACTIONS_CASING_FLAG",
+  "SUSPECTS_ACTIONS_CONCEALED_POSSESSION_WEAPON_FLAG",
+  "SUSPECTS_ACTIONS_DECRIPTION_FLAG",
+  "SUSPECTS_ACTIONS_DRUG_TRANSACTIONS_FLAG",
+  "SUSPECTS_ACTIONS_IDENTIFY_CRIME_PATTERN_FLAG",
+  "SUSPECTS_ACTIONS_LOOKOUT_FLAG",
+  "SUSPECTS_ACTIONS_OTHER_FLAG",
+  "SUSPECTS_ACTIONS_PROXIMITY_TO_SCENE_FLAG",
+  "WEAPON_FOUND_FLAG"
+)
+
+sqf_all_clean <- sqf_all_clean %>%
+  select(-all_of(discarded_vars))
+
+```
+
+```{r stop-level data prep}
+
+# Restrict to main races (drop Others)
+sqf_ols <- sqf_all_clean %>%
+  filter(race %in% BWH)
+
+# Create race dummies
+sqf_ols <- sqf_ols %>%
+  mutate(
+    Black = if_else(race == "BLACK", 1L, 0L),
+    White = if_else(race == "WHITE", 1L, 0L),
+    Hisp  = if_else(race == "HISPANIC", 1L, 0L),
+  )
+
+# impute missing RS factors to 0, since NA means “no information / not flagged”
+sqf_ols <- sqf_ols %>%
+  mutate(across(starts_with("RS_"), ~if_else(is.na(.x), 0L, .x)))
+
+# create data subsets for different mayoral administrations
+sqf_adams <- sqf_ols %>%
+  filter(year >= 2022)
+
+sqf_blasio <- sqf_ols %>%
+  filter(year >= 2014 & year <= 2021)
+
+sqf_bloomberg <- sqf_ols %>%
+  filter(year <= 2013)
+
+
+```
+
+```{r Any sanction}
+
+# ---- Any sanction ----
+# implemented in analysis/ols-models/ols-sanctions.R
+
+# Model: sanction ~ race + age + female + RS_factors + FE
+mod_sanction <- feols(
+  sanction ~ Black + Hisp  + age + female +
+    RS_furtive + RS_crimloc + RS_casing + RS_other +
+    RS_drug + RS_suspobj + RS_appear + RS_violent +
+    i(off_cat) | pct + year + interaction(pct, year) + off_cat_broad,
+  data    = sqf_ols,
+  cluster = "pct"
+)
+
+summary(mod_sanction)
+
+# Logistic regression version
+mod_sanction_logit <- feglm(
+  sanction ~ Black + Hisp + age + female +
+    RS_furtive + RS_crimloc + RS_casing + RS_other +
+    RS_drug + RS_suspobj + RS_appear + RS_violent +
+    i(off_cat) | pct + year + interaction(pct, year),
+  data    = sqf_ols,
+  cluster = "pct",
+  family  = binomial(link = "logit")
+)
+
+summary(mod_sanction_logit)
+
+```
+
+```{r Arrest/summons conditional on sanction}
+# ---- Arrest/summons conditional on sanction ----
+# implemented in analysis/ols-models/ols-sanctions-cond.R
+
+sqf_sanctioned <- sqf_ols %>% filter(sanction == 1)
+
+sqf_sanctioned <- sqf_sanctioned %>%
+  mutate(
+    arrest_only = if_else(arrest == 1 & summons == 0, 1L, 0L),
+    # if you have rare instances of both arrest & summons, treat as arrest_only = 1
+  )
+
+# create data subsets for different mayoral administrations
+sqf_adams_sanctioned <- sqf_sanctioned %>%
+  filter(year >= 2022)
+
+sqf_blasio_sanctioned <- sqf_sanctioned %>%
+  filter(year >= 2014 & year <= 2021)
+
+sqf_bloomberg_sanctioned <- sqf_sanctioned %>%
+  filter(year <= 2013)
+
+mod_arrest_cond <- feols(
+  arrest_only ~ Black + Hisp + age + female +
+    RS_furtive + RS_crimloc + RS_casing + RS_other +
+    RS_drug + RS_suspobj + RS_appear + RS_violent +
+    i(off_cat) | pct + year + interaction(pct, year),
+  data    = sqf_sanctioned,
+  cluster = "pct"
+)
+
+# Conditional arrest models by administration
+mod_arrest_cond_bloomberg <- feols(
+  arrest_only ~ Black + Hisp + age + female +
+    RS_furtive + RS_crimloc + RS_casing + RS_other +
+    RS_drug + RS_suspobj + RS_appear + RS_violent +
+    i(off_cat) | pct + year + interaction(pct, year),
+  data    = sqf_sanctioned %>% filter(year <= 2013),
+  cluster = "pct"
+)
+
+mod_arrest_cond_blasio <- feols(
+  arrest_only ~ Black + Hisp + age + female +
+    RS_furtive + RS_crimloc + RS_casing + RS_other +
+    RS_drug + RS_suspobj + RS_appear + RS_violent +
+    i(off_cat) | pct + year + interaction(pct, year),
+  data    = sqf_sanctioned %>% filter(year >= 2014 & year <= 2021),
+  cluster = "pct"
+)
+
+mod_arrest_cond_adams <- feols(
+  arrest_only ~ Black + Hisp + age + female +
+    RS_furtive + RS_crimloc + RS_casing + RS_other +
+    RS_drug + RS_suspobj + RS_appear + RS_violent +
+    i(off_cat) | pct + year + interaction(pct, year),
+  data    = sqf_sanctioned %>% filter(year >= 2022),
+  cluster = "pct"
+)
+
+# Compare race coefficients across administrations
+etable(mod_arrest_cond_bloomberg, mod_arrest_cond_blasio, mod_arrest_cond_adams,
+       headers = c("Bloomberg", "Blasio", "Adams"),
+       keep = c("%Black", "%Hisp"),
+       digits = 3)
+
+
+```
+
+```{r RS/race interactions}
+
+# ---- RS/race interactions ----
+mod_sanction_int <- feols(
+  sanction ~ Black + Hisp +
+    age + female +
+    RS_furtive + RS_crimloc + RS_other + RS_suspobj + RS_appear +
+    # interactions:
+    RS_furtive:Black + RS_furtive:Hisp + 
+    RS_crimloc:Black + RS_crimloc:Hisp + 
+    RS_other:Black + RS_other:Hisp + 
+    RS_suspobj:Black + RS_suspobj:Hisp + 
+    RS_appear:Black + RS_appear:Hisp +
+    i(off_cat) | pct + year + interaction(pct, year),
+  data    = sqf_ols,
+  cluster = "pct"
+)
+
+summary(mod_sanction_int)
+
+coef_df <- broom::tidy(mod_sanction_int) %>%
+  filter(grepl("RS_", term) & grepl(":", term)) %>%
+  mutate(
+    RS = sub(":.*", "", gsub("RS_", "", term)),
+    race = sub(".*:", "", term)
+  )
+
+ggplot(coef_df, aes(x = RS, y = estimate, colour = race)) +
+  geom_point(position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = estimate - 1.96*std.error,
+                    ymax = estimate + 1.96*std.error),
+                width = 0, position = position_dodge(width = 0.5)) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  coord_flip()
+
+```
+
+```{r Frisk and force models}
+
+# Any frisk
+mod_frisk <- feols(
+  frisk ~ Black + Hisp + + age + female +
+    RS_furtive + RS_crimloc + RS_other + RS_suspobj + RS_appear +
+    i(off_cat) | pct + year + interaction(pct, year),
+  data    = sqf_ols,
+  cluster = "pct"
+)
+```
+
+```{r}
+# Unproductive frisk: define first
+sqf_ols <- sqf_ols %>%
+  mutate(unprod_frisk = if_else(frisk == 1 & search == 0 & sanction == 0 & any_seiz == 0, 1L, 0L))
+
+mod_unprod_frisk <- feols(
+  unprod_frisk ~ Black + Hisp + age + female +
+    RS_furtive + RS_crimloc + RS_other + RS_suspobj + RS_appear +
+    i(off_cat) | pct + year + interaction(pct, year),
+  data    = sqf_ols,
+  cluster = "pct"
+)
+
+summary(mod_unprod_frisk)
+
+```
+
+```{r}
+# Any force, Extra force require defining extra_force (no weapon/violent offense)
+sqf_ols <- sqf_ols %>%
+  mutate(
+    violent_off = if_else(off_cat %in% c("Murder", "Violent", "Weapons"), 1L, 0L),
+    extra_force = if_else(force == 1 & violent_off == 0 & RS_violent == 0, 1L, 0L)
+  )
+
+mod_force <- feols(
+  force ~ Black + Hisp + age + female +
+    RS_furtive + RS_crimloc + RS_other + RS_suspobj + RS_appear +
+    i(off_cat) | pct + year + interaction(pct, year),
+  data    = sqf_ols,
+  cluster = "pct"
+)
+
+summary(mod_force)
+
+mod_extra_force <- feols(
+  extra_force ~ Black + Hisp + age + female +
+    RS_furtive + RS_crimloc + RS_other + RS_suspobj + RS_appear +
+    i(off_cat) | pct + year + interaction(pct, year),
+  data    = sqf_ols,
+  cluster = "pct"
+)
+
+summary(mod_extra_force)
+```
+
+
+

@@ -188,7 +188,7 @@ library(sf)             # Spatial data
     treated_precinct <- shooting$treated_precinct
     control_precinct <- shooting$control_precinct
     
-    pre_window <- 365
+    pre_window <- 180
     post_window <- 14
   
     # PRE period (both precincts)
@@ -228,50 +228,76 @@ library(sf)             # Spatial data
         !is.na(STOP_LOCATION_Y), is.finite(STOP_LOCATION_Y)
       )
     
-    # -----------------------------
-    # Matching by race
-    # -----------------------------
-    for(race_group in c("Black", "White")) {
+    # skip event if no pre or post stops at all
+    if (!any(combined$period == "pre") | !any(combined$period == "post")) next
+    
+    # -------------------------------------------------------
+    # Now work precinct-by-precinct, race-by-race *within* this event
+    # -------------------------------------------------------
+    
+    for (prec_role in c("treated", "control")) {
       
-      match_data <- combined %>% filter(race == race_group)
-      if(nrow(match_data) == 0) next
+      this_prec <- if (prec_role == "treated") treated_precinct else control_precinct
       
-      # Skip if no variation in treatment or sex
-      if(length(unique(match_data$treatment)) < 2) next
+      combined_prec <- combined %>%
+        filter(STOP_LOCATION_PRECINCT == this_prec)
       
-      # Create binary treated indicator for MatchIt
-      match_data <- match_data %>%
-        mutate(treated_bin = as.numeric(treatment == 1))
+      # skip if this precinct has no pre or no post
+      if (!any(combined_prec$period == "pre") | !any(combined_prec$period == "post")) next
       
-      # Mahalanobis matching
-      match_formula <- treated_bin ~
-        STOP_LOCATION_X + STOP_LOCATION_Y +
-        time_x + time_y +
-        SUSPECT_REPORTED_AGE + SUSPECT_HEIGHT
-      
-      matched <- matchit(
-        match_formula,
-        data = match_data,
-        method = "nearest",
-        distance = "mahalanobis",
-        replace = TRUE,
-        ratio = 5
-      )
-      
-      matched_data <- match.data(matched)
-      
-      # Add shooting info
-      matched_data <- matched_data %>%
-        mutate(
-          shooting_id = shooting$shooting_id,
-          shooting_date = shooting_date,
-          treated_precinct = treated_precinct,
-          control_precinct = control_precinct
+      for (race_group in c("Black", "White")) {
+        
+        dat <- combined_prec %>% filter(race == race_group)
+        if (nrow(dat) == 0) next
+        
+        pre_dat  <- dat %>% filter(period == "pre")
+        post_dat <- dat %>% filter(period == "post")
+        
+        if (nrow(pre_dat) == 0 | nrow(post_dat) == 0) next
+    
+        # -------------------------------------
+        # Match post stops to similar pre stops in SAME precinct & race
+        # -------------------------------------
+        
+        # Define treatment as "post" vs "pre" within this precinct
+        dat_for_match <- dat %>%
+          mutate(treated_bin = as.numeric(period == "post"))
+        
+        # Need variation in treated_bin: at least one pre and one post
+        if (length(unique(dat_for_match$treated_bin)) < 2) next
+        
+        match_formula <- treated_bin ~
+          STOP_LOCATION_X + STOP_LOCATION_Y +
+          time_x + time_y +
+          SUSPECT_REPORTED_AGE + SUSPECT_HEIGHT
+        
+        m_out <- matchit(
+          match_formula,
+          data    = dat_for_match,
+          method  = "nearest",
+          distance= "mahalanobis",
+          replace = TRUE,
+          ratio   = 15
         )
-      
-      all_matched[[length(all_matched) + 1]] <- matched_data
+        
+        mdat <- match.data(m_out)
+        
+        # Keep track of event and precinct role
+        mdat <- mdat %>%
+          mutate(
+            shooting_id     = shooting$shooting_id,
+            shooting_date   = shooting_date,
+            precinct        = this_prec,
+            precinct_role   = prec_role,   # "treated" or "control"
+            race_group      = race_group
+          )
+        
+        all_matched[[length(all_matched) + 1]] <- mdat
+      }
     }
   }
+  
+  matched_prec_df <- bind_rows(all_matched)
   
   matched_samples_df <- bind_rows(all_matched)
   
@@ -299,6 +325,10 @@ library(sf)             # Spatial data
     matched_events <- unique(matched_samples_df$shooting_id)
     length(matched_events)
     
+  # =============
+    
+    
+    
   # ============================================================================
   # STEP 4: DIFFERENCE-IN-DIFFERENCES REGRESSION
   # ============================================================================
@@ -314,27 +344,72 @@ library(sf)             # Spatial data
       male = as.numeric(SUSPECT_SEX == "MALE")
     )
   
-  # Optional: filter out very small groups for stability
-  # analysis_data <- analysis_data %>%
-  #  group_by(shooting_id, treated, period) %>%
-  #  filter(n() >= 5) %>%
-  #  ungroup()
+  # filter out very small groups for stability
+  analysis_data <- analysis_data %>%
+    group_by(shooting_id, treated, period) %>%
+    filter(n() >= 5) %>%
+    ungroup()
+  
+  # ======
+  did_model <- glm(
+    any_force ~ treated * post + race + male +
+      SUSPECT_REPORTED_AGE + SUSPECT_HEIGHT,
+    data = analysis_data,
+    family = binomial(link = "logit")
+  )
+  
+  summary(did_model)
+  
+  coef(summary(did_model))["treated:post", ]
+  
+  library(fixest)
+  
+  did_fe <- feglm(
+    any_force ~ treated * post + race + male +
+      SUSPECT_REPORTED_AGE + SUSPECT_HEIGHT | shooting_id + STOP_LOCATION_PRECINCT,
+    data = analysis_data,
+    family = "binomial",
+    cluster = ~ shooting_id
+  )
+  
+  summary(did_fe)
+  
+  did_black_fe <- feglm(
+    any_force ~ treated * post +
+      SUSPECT_REPORTED_AGE + SUSPECT_HEIGHT | shooting_id + STOP_LOCATION_PRECINCT,
+    data = subset(analysis_data, race == "Black"),
+    family = "binomial"
+  )
+  
+  summary(did_black_fe)
+  
+  did_black <- glm(
+    any_force ~ treated * post + male +
+      SUSPECT_REPORTED_AGE + SUSPECT_HEIGHT,
+    data = subset(analysis_data, race == "Black"),
+    family = "binomial"
+  )
+  
+  summary(did_black)
+  
+  # =====
+  
   
   # -----------------------------
   # 1. Basic DiD
   # -----------------------------
-  model_basic <- feols(
+  feols(
     any_force ~ did,
-    data = analysis_data,
+    data = subset(analysis_data, race == "Black"),
     cluster = ~STOP_LOCATION_PRECINCT
   )
   
   # -----------------------------
   # 2. DiD with controls
   # -----------------------------
-  model_controls <- feols(
-    any_force ~ did + SUSPECT_REPORTED_AGE + SUSPECT_HEIGHT + time_x + time_y,
-    data = analysis_data,
+  feols(
+    any_force ~ treated + SUSPECT_REPORTED_AGE + SUSPECT_HEIGHT + time_x + time_y,
+    data = subset(analysis_data, race == "Black"),
     cluster = ~STOP_LOCATION_PRECINCT
   )
   
