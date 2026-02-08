@@ -66,7 +66,9 @@ nypd_sf <- read_sf(nypd_geojson)
 
 # format `Precinct` to match variable name in sqf dfs
 nypd_sf$Precinct <- sprintf("%03d", as.integer(nypd_sf$Precinct))
-nypd_sf$Precinct <- as.character(as.integer(nypd_sf$Precinct))
+nypd_sf$Precinct <- as.integer(nypd_sf$Precinct)
+
+saveRDS(nypd_sf, file = "data/sf/nypd_sf.rds")
 
 # plot the NYPD map
 nypdMAP <- ggplot(nypd_sf) +

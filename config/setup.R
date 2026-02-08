@@ -8,7 +8,7 @@ options(repos = c(CRAN = "https://cloud.r-project.org"))
 required_packages <- c("tidyverse", "readxl", "mapview", "sf", 
                         "kableExtra", "viridis", "gridExtra", "tidycensus",
                         "broom", "corrr", "ggcorrplot", "factoextra", "FactoMineR", "magrittr",
-                        "MatchIt", "marginaleffects", "dots",
+                        "MatchIt", "marginaleffects", "dots", "fixest",
                         "tinytext", "textdata", "lintr")
 
 # check and install any missing packages
@@ -37,6 +37,7 @@ library(magrittr)
 library(MatchIt)
 library(marginaleffects)
 library(dots)
+library(fixest)
 library(lintr)
 
 # define expected sqf data schema
@@ -87,18 +88,11 @@ sqf_files <- c(
   "data/nypd-stop/sqf-2019.xlsx",
   "data/nypd-stop/sqf-2018.xlsx",
   "data/nypd-stop/sqf-2017.xlsx"
-  # "data/nypd-stop/sqf-2016.csv"
-  # "data/nypd-stop/sqf-2015.csv"
-  # "data/nypd-stop/sqf-2014.csv"
-  # "data/nypd-stop/sqf-2013.csv"
-  # "data/nypd-stop/sqf-2012.csv"
-  # "data/nypd-stop/sqf-2011.csv"
 )
 
 # read annual sqf files to historic df
 sqf_hist <- sqf_files %>%
   map_dfr(read_sqf)
-
 
 # quick text for Black, White, and Hispanic stops
 BWH <- c("BLACK", "WHITE", "HISPANIC")
