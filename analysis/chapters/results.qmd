@@ -11,10 +11,23 @@ header-includes:
 
 ```{r, include = FALSE}
 
-library(tidyverse)
-library(fixest)
-library(pdftools)
+# list all required packages for analysis
+pkgs <- c("tidyverse", "fixest", "pdftools", "sf")
 
+# define function to install and load packages
+pkg_install <- function(pkgs) {
+  for (pkg in pkgs) { # for every pkg in set
+    if (!requireNamespace(pkg, quietly = TRUE)) { # if not alr installed,
+      install.packages(pkg) # install package
+    }
+  }
+  sapply(pkgs, requireNamespace, quietly = TRUE) # check installation
+}
+
+pkg_install(pkgs) # install packages
+
+# load data for ols analysis - Chapter 4
+# data derived from ~/Projects/thesis/analysis/analysis-prep.R
 load("~/Projects/thesis/data/derived/sqf_model_data.rda")
 
 ```
