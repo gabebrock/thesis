@@ -1,8 +1,6 @@
 # Table 4. OLS Regression of Officer Stop Rates per 10,000 Persons (Logged)
 # Controlling for Crime Rates and Socioeconomic Factors, NYPD Precincts, 2004–2014
 
-
-
 # Load the prepared data from existing analysis
 # source("../test-hitrate.qmd", local = TRUE)
 
@@ -72,6 +70,9 @@ cat("Data observations by administration:\n")
 cat("Bloomberg:", nrow(pct_year_ols_bloomberg), "\n")
 cat("Blasio:", nrow(pct_year_ols_blasio), "\n") 
 cat("Adams:", nrow(pct_year_ols_adams), "\n")
+
+# -------------------------------------------------------------------------
+
 
 model_stop_bloomberg <- feols(
   log_stop_rate ~ 

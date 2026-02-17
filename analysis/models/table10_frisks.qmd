@@ -1,0 +1,252 @@
+---
+title: "OLS Regression of Frisk by Suspect and Case Characteristics (b, SE, p)"
+format: html
+---
+
+# --- Data preparation ----
+
+```{r data prep}
+
+# Using `sqf_ols` from ~/analysis/test-hitrate.qmd, chunk {r stop-level data prep}
+# `sqf_ols` is saved to an rds file in that chunk and referenced here for rendering
+sqf_ols <- readRDS("../../data/derived/sqf_ols.rds")
+
+# load libraries
+library(tidyverse)
+library(fixest) # for regressions
+
+# check for missing values in variables used in models
+colSums(is.na(sqf_ols))
+
+# impute zeros for NA values for `sqf_ols$female` 
+# (assuming cop would have indicated a female detainee)
+sqf_ols$female[is.na(sqf_ols$female)] <- 0
+
+```
+
+```{r partitioning SQF by admin}
+
+# Create data subsets for different mayoral administrations
+sqf_bloomberg <- dplyr::filter()(sqf_ols, year >= 2006 & year <= 2013)
+sqf_deblasio <- dplyr::filter()(sqf_ols, year >= 2014 & year <= 2021)
+sqf_adams <- dplyr::filter()(sqf_ols, year >= 2022)
+
+```
+
+# --- Frisk and Use of Force Analysis ---
+
+```{r create new variables for conditional frisk/force}
+
+# variable for unproductive frisk with no search or seizure
+sqf_ols <- sqf_ols %>%
+  mutate(unprod_frisk = if_else(
+    frisk == 1 & search == 0 & sanction == 0 & any_seiz == 0, 
+    1, 0
+    ))
+
+# variable for frisk when no suspicion of weapon or violence
+sqf_ols <- sqf_ols %>%
+  mutate(
+    extra_frisk = if_else(
+      frisk == 1 & RS_suspobj == 0 & RS_violent == 0,
+      1, 0
+    ))
+
+# variable for use of force when no suspicion of weapon or violence
+sqf_ols <- sqf_ols %>%
+  mutate(
+    extra_force = if_else(
+      force == 1 & RS_suspobj == 0 & RS_violent == 0, 
+      1, 0
+    ))
+
+```
+
+```{r create summary table for frisk and force measures}
+
+frisk_force_cat_table <- tibble(
+  Measure = c("Frisk",
+              "Extra Frisk",
+              "Unproductive Frisk",
+              "Force",
+              "Extra Force"),
+
+  Mean = round(c(mean(sqf_ols$frisk),
+           mean(sqf_ols$extra_frisk),
+           mean(sqf_ols$unprod_frisk),
+           mean(sqf_ols$force),
+           mean(sqf_ols$extra_force)), 3),
+
+  SD = round(c(sd(sqf_ols$frisk),
+         sd(sqf_ols$extra_frisk),
+         sd(sqf_ols$unprod_frisk),
+         sd(sqf_ols$force),
+         sd(sqf_ols$extra_force)), 3)
+)
+
+frisk_force_cat_table
+
+```
+
+```{r}
+
+mean(sqf_ols$extra_frisk[sqf_ols$frisk == 1])
+mean(sqf_ols$any_weap[sqf_ols$frisk == 1] == 0)
+
+```
+
+**Hypothesis 1:** Do race main effects differ?
+
+*Are Black or Hispanic suspects more likely to experience futile frisks or force?*
+
+**Hypothesis 2:** Are RS factors racially stereotyped?
+
+If RS factors are racially biased:
+  - The effect of subjective RS factors should differ by race
+  - Appearance-based RS factors should behave differently across racial groups
+
+
+## Frisk Analysis
+
+```{r Unproductive Frisk models}
+
+# All Frisks: Basic OLS with fixed effects (without interactions)
+frisk_model1 <- feols(
+  frisk ~ Black + Hisp + age + female +
+    RS_furtive + RS_crimloc + RS_casing +
+    RS_other + RS_drug + RS_suspobj + RS_appear + RS_violent |
+    pct + year + pct:year + off_cat_broad,
+  data = sqf_ols,
+  cluster = ~ pct
+)
+
+# All Frisks: OLS w/ race x RS interactions
+frisk_model2 <- feols(
+  frisk ~
+    (RS_furtive + RS_crimloc + RS_casing + RS_other + 
+       RS_drug + RS_suspobj + RS_appear + RS_violent) *
+    (Black + Hisp) +
+    age + female |
+    pct + year + pct:year + off_cat_broad,
+  data = sqf_ols,
+  cluster = ~ pct
+)
+
+sqf_ols_nogeo <- st_drop_geometry(sqf_ols)
+
+# Unproductive Frisks: Basic OLS with fixed effects (without interactions)
+frisk_model3 <- feols(
+  unprod_frisk ~ Black + Hisp + age + female +
+    RS_furtive + RS_crimloc + RS_casing +
+    RS_other + RS_drug + RS_suspobj + RS_appear + RS_violent |
+    pct + year + pct:year + off_cat_broad,
+  data = subset(sqf_ols_nogeo, frisk == 1),
+  cluster = ~ pct
+)
+
+# Unproductive Frisks: OLS w/ race x RS interactions
+frisk_model4 <- feols(
+  unprod_frisk ~
+    (RS_furtive + RS_crimloc + RS_casing + RS_other + 
+       RS_drug + RS_suspobj + RS_appear + RS_violent) *
+    (Black + Hisp) +
+    age + female |
+    pct + year + pct:year + off_cat_broad,
+  data = subset(sqf_ols, frisk == 1),
+  cluster = ~ pct
+)
+
+etable(
+  frisk_model1, frisk_model2,
+  frisk_model3, frisk_model4,
+  view = TRUE
+)
+
+```
+
+```{r Wald tests for interactions}
+
+# test the joint nullity of the set of coefficients for race x RS interactions
+wald(frisk_model2, keep = "RS_.*:Black")
+wald(frisk_model2, keep = "RS_.*:Hisp")
+
+wald(frisk_model4, keep = "RS_.*:Black")
+wald(frisk_model4, keep = "RS_.*:Hisp")
+
+```
+
+
+**Frisk Decisions**
+
+Across the full sample of stops, Black and Hispanic suspects are significantly more likely than White suspects to be frisked, even after controlling for age, gender, detailed suspicion factors, precinct fixed effects, year fixed effects, offense categories, and precinct-by-year effects. In the baseline specification, Black suspects are approximately 3.7 percentage points more likely to be frisked, and Hispanic suspects approximately 3.3 percentage points more likely. When interactions between race and reasonable suspicion (RS) factors are included, these disparities increase substantially, suggesting that racial differences are not fully explained by observable suspicion characteristics.
+
+Reasonable suspicion indicators strongly predict frisk decisions. Suspicion of violent behavior, suspicious objects (weapons), and appearance-based suspicion are among the largest predictors of frisking. However, these suspicion factors do not operate uniformly across racial groups. Several interaction terms are negative and statistically significant, particularly for subjective suspicion categories such as appearance, drug-related suspicion, and violent suspicion. This pattern indicates that the marginal effect of certain suspicion factors is attenuated for Black and Hispanic suspects relative to Whites. In other words, officers appear more likely to frisk minority suspects even absent the same incremental increases in documented suspicion.
+
+**Unproductive Frisks**
+
+Conditional on a frisk occurring, Black and Hispanic suspects are significantly more likely to experience an unproductive frisk—defined as a frisk that yields no search, seizure, or sanction. In the baseline model, Black suspects are roughly 4.7 percentage points more likely than Whites to experience an unproductive frisk, and Hispanic suspects are approximately 2.5 percentage points more likely. These disparities increase in the interaction model, rising to approximately 5.8 percentage points for Black suspects and 3.0 percentage points for Hispanic suspects.
+
+Importantly, suspicion factors that should reduce the probability of a futile frisk, such as suspicion of a weapon, do not do so equally across racial groups. The interaction between weapon-related suspicion and race is positive and statistically significant, indicating that weapon suspicion reduces the likelihood of an unproductive frisk less for Black and Hispanic suspects than for Whites. Similar heterogeneous effects appear for drug-related suspicion and crime-location suspicion. These findings suggest that the evidentiary content of documented suspicion translates into outcomes differently across racial groups.
+
+## Force Analysis
+
+```{r}
+
+# Any Use of Force: Basic OLS with fixed effects (without interactions)
+force_model1 <- feols(
+  force ~ Black + Hisp + age + female +
+    RS_furtive + RS_crimloc + RS_casing +
+    RS_other + RS_drug + RS_suspobj + RS_appear + RS_violent |
+    pct + year + pct:year + off_cat_broad,
+  data = sqf_ols,
+  cluster = ~ pct
+)
+
+# Any Use of Force: OLS w/ race x RS interactions
+force_model2 <- feols(
+  force ~
+    (RS_furtive + RS_crimloc + RS_casing + RS_other + 
+       RS_drug + RS_suspobj + RS_appear + RS_violent) *
+    (Black + Hisp) +
+    age + female |
+    pct + year + pct:year + off_cat_broad,
+  data = sqf_ols,
+  cluster = ~ pct
+)
+
+# Extra Use of Force: Basic OLS with fixed effects (without interactions)
+force_model3 <- feols(
+  extra_force ~ Black + Hisp + age + female +
+    RS_furtive + RS_crimloc + RS_casing +
+    RS_other + RS_drug + RS_suspobj + RS_appear + RS_violent |
+    pct + year + pct:year + off_cat_broad,
+  data = subset(sqf_ols, frisk == 1),
+  cluster = ~ pct
+)
+
+# Extra Use of Force: OLS w/ race x RS interactions
+force_model4 <- feols(
+  extra_force ~
+    (RS_furtive + RS_crimloc + RS_casing + RS_other + 
+       RS_drug + RS_suspobj + RS_appear + RS_violent) *
+    (Black + Hisp) +
+    age + female |
+    pct + year + pct:year + off_cat_broad,
+  data = subset(sqf_ols, frisk == 1),
+  cluster = ~ pct
+)
+
+etable(force_model1, force_model2, force_model3, force_model4,
+       tex = TRUE)
+
+```
+
+**Use of Force**
+
+In contrast to frisk decisions, overall racial differences in the use of force are comparatively small once controls and fixed effects are included. In the baseline specification, the coefficients on Black and Hispanic are substantively small and statistically insignificant. Force is strongly predicted by violent suspicion, appearance-based suspicion, and crime-location suspicion, indicating that officers’ use of force is closely tied to documented threat-related factors.
+
+However, interaction models reveal that some suspicion categories operate differently across racial groups. For example, crime-location suspicion and suspicious object suspicion have smaller marginal effects on force for minority suspects in certain specifications. These patterns suggest heterogeneity in how suspicion factors are translated into force decisions, though the magnitude of racial differences in overall force use remains modest relative to those observed for frisk decisions.
+
+**Extra Force**
+
+Restricting attention to frisks without suspicion of a weapon or violent behavior—arguably a more discretionary margin—racial differences reemerge. In the baseline specification, Black and Hispanic suspects are slightly less likely to experience extra force relative to Whites. However, once interactions are introduced, the relationship between race and extra force becomes contingent on the underlying suspicion context. Certain suspicion factors, particularly suspicious object suspicion, have significantly different marginal effects across racial groups even within this restricted sample.

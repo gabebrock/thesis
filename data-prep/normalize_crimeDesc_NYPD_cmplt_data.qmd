@@ -1,0 +1,81 @@
+---
+title: "Untitled"
+format: html
+---
+
+```{r}
+
+library(readr)
+NYPD_Complaint_Data_Historic <- read_csv("data/nypd-crime/NYPD_Complaint_Data_Historic.csv")
+
+```
+
+```{r}
+
+NYPD_Complaint_Data_Historic %>% group_by(OFNS_DESC) %>% count() %>% arrange(OFNS_DESC) %>% print(n = 1000)
+
+for offense in offense_description {
+  NYPD_Complaint_Data_Historic %>% 
+    filter(OFNS_DESC == offense) %>% 
+    select(PD_DESC) %>% unique()
+}
+
+NYPD_Complaint_Data_Historic %>% filter(OFNS_DESC == "AGRICULTURE & MRKTS LAW-UNCLASSIFIED") %>% select(PD_DESC, OFNS_DESC) %>% unique()
+
+NYPD_Complaint_Data_Historic %>% 
+  distinct(OFNS_DESC, PD_DESC) %>%
+  select(OFNS_DESC, PD_DESC) %>%
+  arrange(OFNS_DESC)
+
+```
+
+
+```{r}
+
+NYPD_Complaint_Data_Historic <- NYPD_Complaint_Data_Historic %>% mutate(
+    crime_category = case_when(
+
+      OFNS_DESC  %in% c("ASSAULT 3 & RELATED OFFENSES", "CHILD ABANDONMENT/NON SUPPORT", 
+                           "CHILD ABANDONMENT/NON SUPPORT 1", "FELONY ASSAULT", "FELONY SEX CRIMES",
+                           "HOMICIDE-NEGLIGENT,UNCLASSIFIE", "HOMICIDE-NEGLIGENT-VEHICLE", "JOSTLING", 
+                           "KIDNAPPING", "KIDNAPPING & RELATED OFFENSES", "OFFENSES AGAINST THE PERSON", 
+                           "RAPE", "SEX CRIMES") ~ "crime_Violent",
+      
+      OFNS_DESC %in% c("DANGEROUS WEAPONS", "UNLAWFUL POSS. WEAP. ON SCHOOL") ~ "crime_Weapons",
+      
+      OFNS_DESC %in% c("ARSON", "BURGLAR'S TOOLS", "BURGLARY", "GRAND LARCENY", "GRAND LARCENY OF MOTOR VEHICLE",
+          "HARRASSMENT 2", "OTHER OFFENSES RELATED TO THEF", "PETIT LARCENY", "PETIT LARCENY OF MOTOR VEHICLE",
+          "POSSESSION OF STOLEN PROPERTY", "ROBBERY", "THEFT OF SERVICES", "THEFT-FRAUD", "UNAUTHORIZED USE OF A VEHICLE") ~ "crime_Property",
+        
+      OFNS_DESC %in% c("CANNABIS RELATED OFFENSES", "DANGEROUS DRUGS") ~ "crime_Drug",
+      
+      OFNS_DESC %in% c("CRIMINAL TRESPASS") ~ "crime_Trespass",
+        
+      OFNS_DESC %in% c("ALCOHOLIC BEVERAGE CONTROL LAW", "ANTICIPATORY OFFENSES",
+          "CRIMINAL MISCHIEF & RELATED OF", "DISORDERLY CONDUCT", "DISRUPTION OF A RELIGIOUS SERV", 
+          "GAMBLING", "INTOXICATED & IMPAIRED DRIVING", "INTOXICATED/IMPAIRED DRIVING", "LOITERING",
+          "LOITERING/GAMBLING (CARDS, DIC", "OFF. AGNST PUB ORD SENSBLTY &", "OFFENSES AGAINST PUBLIC SAFETY",
+          "PROSTITUTION & RELATED OFFENSES") ~ "crime_QualityOfLife",
+        
+      OFNS_DESC %in% c("AGRICULTURE & MRKTS LAW-UNCLASSIFIED", "(null)", "ADMINISTRATIVE CODE", "ENDAN WELFARE INCOMP", 
+          "ESCAPE 3", "FORGERY", "FORTUNE TELLING", "FRAUDS", "FRAUDULENT ACCOSTING", "NEW YORK CITY HEALTH CODE",
+          "OFFENSES AGAINST MARRIAGE UNCL", "OFFENSES AGAINST PUBLIC ADMINI", "OFFENSES INVOLVING FRAUD",
+          "OFFENSES RELATED TO CHILDREN", "OTHER TRAFFIC INFRACTION", "VEHICLE AND TRAFFIC LAWS") ~ "crime_Other",
+        
+      OFNS_DESC %in% c("MISCELLANEOUS PENAL LAW", "NYS LAWS-UNCLASSIFIED FELONY", "NYS LAWS-UNCLASSIFIED VIOLATION",
+          "OTHER STATE LAWS", "OTHER STATE LAWS (NON PENAL LA", "OTHER STATE LAWS (NON PENAL LAW)") ~ "crime_Unclassed"))
+
+```
+
+
+```{r}
+
+NYPD_Complaint_Data_Historic %>%
+  mutate(CMPLNT_FR_DT = mdy(CMPLNT_FR_DT)) %>%
+  filter(year(CMPLNT_FR_DT) >= 2000) %>%
+  group_by(year(CMPLNT_FR_DT), crime_category) %>% 
+  count() %>% 
+  pivot_wider(names_from = crime_category, values_from = n)
+
+```
+

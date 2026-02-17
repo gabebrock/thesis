@@ -1,0 +1,29 @@
+\begingroup
+\centering
+\begin{tabular}{lccccc}
+   \tabularnewline \midrule \midrule
+   Dependent Variable: & \multicolumn{5}{c}{log\_stops}\\
+                & \makecell{Base Model\\(Race Only)}    & \makecell{Model 1\\+ Lagged Stops}    & \makecell{Model 2\\+ Current Crime}    & \makecell{Model 3\\+ Borough FE Only}    & \makecell{Model 4\\+ Change in Crime} \\      
+   Model:       & (1)                                   & (2)                                   & (3)                                    & (4)                                      & (5)\\  
+   \midrule
+   \emph{Variables}\\
+   \% Black     & 0.915$^{**}$                          & 0.157$^{**}$                          & 0.160$^{***}$                          & 0.083$^{***}$                            & 1.27$^{***}$\\   
+                & (0.355)                               & (0.060)                               & (0.060)                                & (0.027)                                  & (0.426)\\   
+   \% Hispanic  & 0.306                                 & 0.042                                 & 0.045                                  & 0.017                                    & 0.282\\   
+                & (0.379)                               & (0.068)                               & (0.068)                                & (0.035)                                  & (0.508)\\   
+   Year FE      & Yes                                   & Yes                                   & Yes                                    & No                                       & No\\  
+   Month FE     & Yes                                   & Yes                                   & Yes                                    & No                                       & No\\  
+   Borough FE   & Yes                                   & Yes                                   & Yes                                    & Yes                                      & Yes\\  
+   Clustered SE & Precinct                              & Precinct                              & Precinct                               & Precinct                                 & Precinct\\  
+   \midrule
+   \emph{Fixed-effects}\\
+   BoroName     & Yes                                   & Yes                                   & Yes                                    & Yes                                      & Yes\\  
+   \midrule
+   \emph{Fit statistics}\\
+   R$^2$        & 0.67319                               & 0.89509                               & 0.89514                                & 0.88337                                  & 0.11649\\  
+   Observations & 13,561                                & 13,561                                & 13,561                                 & 13,561                                   & 13,487\\  
+   \midrule \midrule
+   \multicolumn{6}{l}{\emph{Clustered (pct) standard-errors in parentheses}}\\
+   \multicolumn{6}{l}{\emph{Signif. Codes: ***: 0.01, **: 0.05, *: 0.1}}\\
+\end{tabular}
+\par\endgroup

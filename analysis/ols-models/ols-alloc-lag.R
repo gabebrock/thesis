@@ -1,13 +1,13 @@
+library(fixest)
 
-# create data subsets for different mayoral administrations
-pct_month_lagged_adams <- pct_month_lagged %>%
-  filter(year >= 2022)
-
-pct_month_lagged_blasio <- pct_month_lagged %>%
-  filter(year >= 2014 & year <= 2021)
-
-pct_month_lagged_bloomberg <- pct_month_lagged %>%
-  filter(year <= 2013)
+if (!exists("pct_month_lagged_bloomberg") || !exists("pct_month_lagged_blasio") || !exists("pct_month_lagged_adams")) {
+  pct_month_lagged_bloomberg <- pct_month_lagged %>%
+    dplyr::filter(year <= 2013)
+  pct_month_lagged_blasio <- pct_month_lagged %>%
+    dplyr::filter(year >= 2014 & year <= 2021)
+  pct_month_lagged_adams <- pct_month_lagged %>%
+    dplyr::filter(year >= 2022)
+}
 
 # Function to run models for different administrations
 run_allocation_models <- function(data, admin_name) {
@@ -137,7 +137,7 @@ cat("\n=== Analysis Complete ===\n")
 
 
 # --- General Models ----
-etable(
+table1_stop_freq <- etable(
   models_overall$basic,
   models_overall$with_lag_stops,
   models_overall$dynamic,
@@ -167,13 +167,14 @@ etable(
     "Borough FE" = c("Yes", "Yes", "Yes", "Yes", "Yes"),
     "Clustered SE" = c("Precinct", "Precinct", "Precinct", "Precinct", "Precinct")
   ),
-  view = TRUE
+  view = FALSE,
+  tex = TRUE
 )
 # -------
 
 
 # --- Comparision Models ----
-etable(
+table1b_stop_freq_comp <- etable(
   models_overall$basic,
   models_overall$with_change,
   models_bloomberg$basic,
@@ -209,8 +210,6 @@ etable(
     "Borough FE" = c("Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"),
     "Clustered SE" = c("Precinct", "Precinct", "Precinct", "Precinct", "Precinct", "Precinct", "Precinct", "Precinct")
   ),
-  view = TRUE
+  view = FALSE,
+  tex = TRUE
 )
-
-
-# -------

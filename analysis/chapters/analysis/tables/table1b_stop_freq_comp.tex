@@ -1,0 +1,29 @@
+\begingroup
+\centering
+\begin{tabular}{lcccccccc}
+   \tabularnewline \midrule \midrule
+   Dependent Variable: & \multicolumn{8}{c}{log\_stops}\\
+                & \makecell{General\\ Base Model}    & \makecell{General\\ Model 5}    & \makecell{Bloomberg\\ Base Model}    & \makecell{Bloomberg\\ Model 5}    & \makecell{de Blasio\\ Base Model}    & \makecell{de Blasio\\ Model 5}    & \makecell{Adams\\ Base Model}    & \makecell{Adams\\ Model 5} \\      
+   Model:       & (1)                                & (2)                             & (3)                                  & (4)                               & (5)                                  & (6)                               & (7)                              & (8)\\  
+   \midrule
+   \emph{Variables}\\
+   \% Black     & 0.915$^{**}$                       & 1.27$^{***}$                    & 1.37$^{**}$                          & 1.68$^{**}$                       & 0.371                                & 0.344                             & 1.04$^{***}$                     & 1.03$^{***}$\\   
+                & (0.355)                            & (0.426)                         & (0.670)                              & (0.671)                           & (0.233)                              & (0.218)                           & (0.302)                          & (0.303)\\   
+   \% Hispanic  & 0.306                              & 0.282                           & 0.300                                & 0.667                             & 0.159                                & 0.101                             & 0.562                            & 0.530\\   
+                & (0.379)                            & (0.508)                         & (0.710)                              & (0.716)                           & (0.269)                              & (0.257)                           & (0.415)                          & (0.412)\\   
+   Year FE      & Yes                                & No                              & Yes                                  & No                                & Yes                                  & No                                & Yes                              & No\\  
+   Month FE     & Yes                                & Yes                             & Yes                                  & Yes                               & Yes                                  & Yes                               & Yes                              & Yes\\  
+   Borough FE   & Yes                                & Yes                             & Yes                                  & Yes                               & Yes                                  & Yes                               & Yes                              & Yes\\  
+   Clustered SE & Precinct                           & Precinct                        & Precinct                             & Precinct                          & Precinct                             & Precinct                          & Precinct                         & Precinct\\  
+   \midrule
+   \emph{Fixed-effects}\\
+   BoroName     & Yes                                & Yes                             & Yes                                  & Yes                               & Yes                                  & Yes                               & Yes                              & Yes\\  
+   \midrule
+   \emph{Fit statistics}\\
+   R$^2$        & 0.67319                            & 0.11649                         & 0.37273                              & 0.15299                           & 0.15504                              & 0.06334                           & 0.29792                          & 0.27974\\  
+   Observations & 13,561                             & 13,487                          & 4,685                                & 4,611                             & 6,921                                & 6,848                             & 1,955                            & 1,882\\  
+   \midrule \midrule
+   \multicolumn{9}{l}{\emph{Clustered (pct) standard-errors in parentheses}}\\
+   \multicolumn{9}{l}{\emph{Signif. Codes: ***: 0.01, **: 0.05, *: 0.1}}\\
+\end{tabular}
+\par\endgroup
