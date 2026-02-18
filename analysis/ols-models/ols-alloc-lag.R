@@ -1,4 +1,5 @@
 library(fixest)
+library(tidyverse)
 
 if (!exists("pct_month_lagged_bloomberg") || !exists("pct_month_lagged_blasio") || !exists("pct_month_lagged_adams")) {
   pct_month_lagged_bloomberg <- pct_month_lagged %>%
