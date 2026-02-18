@@ -12,7 +12,8 @@ header-includes:
 ```{r, include = FALSE}
 
 # list all required packages for analysis
-pkgs <- c("tidyverse", "fixest", "pdftools", "sf")
+pkgs <- c("tidyverse", "fixest", "pdftools", "sf", "kableExtra",
+          "knitr")
 
 # define function to install and load packages
 pkg_install <- function(pkgs) {
@@ -351,6 +352,8 @@ Examining interactions between race and suspicion factors reveals that the sanct
 
 ```{r echo=FALSE, results="asis"}
 
+cat("\\clearpage")
+
 etable(
     model2b_all,
     model2b_bloomberg,
@@ -366,6 +369,8 @@ etable(
     float = TRUE
   )
 
+cat("\\clearpage")
+
 ```
 
 ```{r, echo=FALSE}
@@ -380,7 +385,7 @@ models_int <- list(
 coef_df <- purrr::imap_dfr(models_int, function(m, sample_name) {
   broom::tidy(m) %>%
     dplyr::mutate(sample = sample_name)
-}) %>%
+  }) %>%
   dplyr::filter(grepl("RS_", term), grepl(":", term), grepl("Black|Hisp", term)) %>%
   tidyr::separate(term, into = c("lhs", "rhs"), sep = ":", remove = FALSE) %>%
   dplyr::mutate(
@@ -449,10 +454,159 @@ ggplot(coef_df, aes(x = RS, y = estimate, colour = race)) +
   )
 
 ```
-These findings are consistent with Fagan’s (2022) counterfactual framework, which argues that officers may rely disproportionately on stereotype-linked cues when forming reasonable suspicion. My analysis suggests that, while the overall probability of sanction was affected by reforms, race continues to mediate the effectiveness of suspicion, and that more subjective RS factors contiune to operate as a vehicle for generalized suspicion.
+These findings are consistent with Fagan’s (2022) counterfactual framework, which argues that officers may rely disproportionately on stereotype-linked cues when forming reasonable suspicion. My analysis suggests that, while the overall probability of sanction was affected by reforms, race continues to mediate the effectiveness of suspicion, and that more subjective RS factors continue to operate as a vehicle for generalized suspicion.
 
-# Race and Use of Force
+# Race and Escalating Interactions
 
-Table 9. Frisk and Force Categories
-Table 10. OLS Regression of Frisk by Suspect and Case Characteristics (b, SE, p)
-Table 11. OLS Regression on Use of Force by Suspect and Case Characteristics (b, SE, p)
+Focusing on disparity in only *post*-stop outcomes misses important dimensions of bias in the intermediate phases of a detention. Even though I did find that in some cases, Black suspects were less likely to be sanctioned after a stop, this does not necessarily indicate that they were treated more favorably.
+
+The final quantitative dimension of disparate treatment I examine regards the decision frisk and use force against detainees. Even if officers are less likely to sanction Black suspects after a stop, they may still be more likely to subject them to invasive (and possibly unfounded) searches or use force during a stop.
+
+As mentioned in Chapter 1, under New York law, stops and frisks are considered separate interactions. A valid decision to frisk, while reliant on a valid stop, requires a separate, more scrutinous justification of reasonable suspicion that the suspect is armed and dangerous. This creates a distinct decision point where bias may manifest. Given that a frisk is justified solely in the case where an officer believe a suspect is has a weapon on their person, I can use the weapon recovery rate (also know as the "hit rate") as a proxy to see if officers generally conduct more unproductive frisks against Black pedestrians. To estimate the effect of race on frisks, I categorized frisks into three categories: (1) Any Frisk, (2) Extra Frisk (frisks conducted with no indication of violence or weapon), and (3) Unproductive Frisk.
+
+Similarly, I can use weapon recovery to examine bias in the use of force. Officers are required to indicate on a stop report if they used force if the detainee was not suspected of violent crime or was not in possession of a weapon. if officers disproportionately use force against Black detainees in stops that lack these aggravating circumstances, this could suggests that stop interactions are more likely to escalate for Black suspects, even if they are less likely to be sanctioned after the stop.
+
+```{r frisk.force data analysis, include=FALSE}
+
+# load frisk data analysis
+source("~/Projects/thesis/analysis/models/table10_frisks.R")
+
+```
+
+## Frisk and Force Categories
+
+```{r, echo=FALSE, results="asis"}
+# Pivot to wide format with both Mean and SD
+  
+  # Create LaTeX table
+  kable(
+    frisk_force_wide,
+    format = "latex",
+    booktabs = TRUE,
+    caption = "Frisk and Force Measures by Administration (Mean ± SD)",
+    digits = 3
+  ) %>%
+    kable_styling(latex_options = c("hold_position", "striped"))
+
+```
+
+Table 7 unfolds a narrative that complicates the pictures of reform illustrated by stop outcomes. Across all stops, frisks are generally unproductive, and officers frequently use for even when it may not be warranted. Between 2009 and 2024, over half of all detainees were frisked (`r round(frisk_force_wide$Overall[1], 3)`), over one-third of these frisks were unwarranted (`r round(frisk_force_wide$Overall[2], 3)`), and almost half were unproductive (`r round(frisk_force_wide$Overall[3], 3)`). Interestingly, whereas the overall frisk rate declined under de Blasio, the proportion of frisks increased almost $10\%$ to (`r round(frisk_force_wide$DeBlasio[1], 3)`), but unwarranted and unproductive frisks declined to (`r round(frisk_force_wide$DeBlasio[2], 3)`) and (`r round(frisk_force_wide$DeBlasio[3], 3)`), respectively. This pattern suggests that officers may have become more selective in who they stopped, and that this selectivity may have heightened the basis for frisks. This trend continued under Adams, wherein frisk rates stayed relative to de Blasio but even fewer frisks were unwarranted (`r round(frisk_force_wide$Adams[2], 3)`) and unproductive (`r round(frisk_force_wide$Adams[3], 3)`).
+
+The force rate however, trended independently of the frisk rate. Whereas the proportion of stops involving a frisk declined under de Blasio and Adams, decreasing from `r round(frisk_force_wide$Overall[4], 3)` to `r round(frisk_force_wide$DeBlasio[4], 3)` and `r round(frisk_force_wide$Adams[4], 3)`, respectively, the proportion of stops involving unwarranted force increased drastically under both administrations. 
+
+During the Bloomberg administration, only $2.7\%$ of all stops `r round(frisk_force_wide$Bloomberg[4], 3)` of stops involved force, but this proportion skyrocketed under de Blasio and Adams, increasing to `r round(frisk_force_wide$DeBlasio[4], 3)` and `r round(frisk_force_wide$Adams[4], 3)`, respectively. Meaning that, out of 100 stops, only 3 would involve force under Bloomberg, but this rate increased to 20 under de Blasio and 24 under Adams, a $700\%$ increase. While one could attempt to explain away this increase by pointing out that officers were likely stopping a higher proportion agressive or armed pedestrians, the Extra Force rate, refutes this. The proportion of stops involving unwarranted force increased a similar margin post-*Floyd* as well, 400\% from the Bloomberg-era to `r round(frisk_force_wide$DeBlasio[5], 3)` under de Blasio and `r round(frisk_force_wide$Adams[5], 3)` under Adams. Meaning that, on average, out of 100 stops stops involving force, 11 of those deployments would have been unwarranted under de Blasio and Adams, compared to only 2 under Bloomberg. In other words, the proportion of stops involving force increased under de Blasio and Adams, and a much larger share of those deployments.
+
+Much like suspicion, it is possible that while officers became more selective in who they stopped, this selectivity may have been impacted by race. As such, I test the effect of race on stop interactions to see if Black or Hispanic suspects more likely to experience unwarranted frisks or force.
+
+## Table 10. OLS Regression of Frisk by Suspect and Case Characteristics (b, SE, p)
+
+Table 10 presents regression results examining whether frisk and force trends vary racially. I estimate the effects of race for each measure of frisk and use of force, both with and without interactions between suspect race and the RS factors. If reported reasonable suspicion reflected racial stereotyping, I would expect to see differences in both the magnitude and statistical significance of the main effects of race, as well as in the five subjected RS factors.
+
+```{r, include=FALSE}
+
+# proportion of extra_frisk only for observations where frisk == 1.  
+mean(sqf_ols$extra_frisk[sqf_ols$frisk == 1])
+  
+# proportion of frisks where no weapon was found
+mean(sqf_ols$any_weap[sqf_ols$frisk == 1] == 0)
+
+```
+
+```{r, include=FALSE}
+
+var_order <- c(
+  "Black", "Hisp", "age",
+  "RS_furtive", "RS_crimloc", "RS_casing",
+  "RS_other", "RS_drug", "RS_suspobj",
+  "RS_appear", "RS_violent"
+)
+
+```
+
+```{r, echo=FALSE, results="asis"}
+cat("\\clearpage")
+
+etable(
+  frisk_model1, frisk_model2,
+  frisk_model3, frisk_model4,
+  order = var_order,
+  dict = c(frisk = "Any Frisk", unprod_frisk = "Unproductive Frisk"),
+  headers = list(
+    c("No Race-RS \n Interactions",
+      "With Race-RS \n Interactions",
+      "No Race-RS \n Interactions",
+      "With Race-RS \n Interactions")
+  ),
+  fitstat = ~ n + r2,
+  keep = c("^Black$", "^Hisp$", "^age$", "^female$",
+           "^RS_furtive$", "^RS_crimloc$", "^RS_casing$",
+           "^RS_other$", "^RS_drug$", "^RS_suspobj$",
+           "^RS_appear$", "^RS_violent$"),
+  title = "OLS Regression of Frisk by Suspect and Case Characteristics",
+  tex = TRUE,
+  digits = 3,
+  style.tex = style.tex(
+    depvar.title = "Dependent Variable:",
+    model.title = ""
+  )
+)
+
+cat("\\clearpage")
+```
+
+**Frisk Decisions**
+
+Across the full sample of stops, Black and Hispanic suspects are significantly more likely than White suspects to be frisked, even after controlling for age, gender, detailed suspicion factors, precinct fixed effects, year fixed effects, offense categories, and precinct-by-year effects. In the baseline specification, Black suspects are approximately 3.7 percentage points more likely to be frisked, and Hispanic suspects approximately 3.3 percentage points more likely. When interactions between race and reasonable suspicion (RS) factors are included, these disparities increase substantially, suggesting that racial differences are not fully explained by observable suspicion characteristics.
+
+Reasonable suspicion indicators strongly predict frisk decisions. Suspicion of violent behavior, suspicious objects (weapons), and appearance-based suspicion are among the largest predictors of frisking. However, these suspicion factors do not operate uniformly across racial groups. Several interaction terms are negative and statistically significant, particularly for subjective suspicion categories such as appearance, drug-related suspicion, and violent suspicion. This pattern indicates that the marginal effect of certain suspicion factors is attenuated for Black and Hispanic suspects relative to Whites. In other words, officers appear more likely to frisk minority suspects even absent the same incremental increases in documented suspicion.
+
+**Unproductive Frisks**
+
+Conditional on a frisk occurring, Black and Hispanic suspects are significantly more likely to experience an unproductive frisk—defined as a frisk that yields no search, seizure, or sanction. In the baseline model, Black suspects are roughly 4.7 percentage points more likely than Whites to experience an unproductive frisk, and Hispanic suspects are approximately 2.5 percentage points more likely. These disparities increase in the interaction model, rising to approximately 5.8 percentage points for Black suspects and 3.0 percentage points for Hispanic suspects.
+
+Importantly, suspicion factors that should reduce the probability of a futile frisk, such as suspicion of a weapon, do not do so equally across racial groups. The interaction between weapon-related suspicion and race is positive and statistically significant, indicating that weapon suspicion reduces the likelihood of an unproductive frisk less for Black and Hispanic suspects than for Whites. Similar heterogeneous effects appear for drug-related suspicion and crime-location suspicion. These findings suggest that the evidentiary content of documented suspicion translates into outcomes differently across racial groups.
+
+## Table 11. OLS Regression on Use of Force by Suspect and Case Characteristics (b, SE, p)
+
+```{r, echo=FALSE, results="asis"}
+
+cat("\\clearpage")
+
+etable(
+  force_model1, force_model2,
+  force_model3, force_model4,
+  order = var_order,
+  dict = c(frisk = "Any Force", unprod_frisk = "Extra Force"),
+  headers = list(
+    c("No Race-RS \n Interactions",
+      "With Race-RS \n Interactions",
+      "No Race-RS \n Interactions",
+      "With Race-RS \n Interactions")
+  ),
+  fitstat = ~ n + r2,
+  keep = c("^Black$", "^Hisp$", "^age$", "^female$",
+           "^RS_furtive$", "^RS_crimloc$", "^RS_casing$",
+           "^RS_other$", "^RS_drug$", "^RS_suspobj$",
+           "^RS_appear$", "^RS_violent$"),
+  title = "OLS Regression of Use of Force \n by Suspect and Case Characteristics",
+  tex = TRUE,
+  digits = 3,
+  style.tex = style.tex(
+    depvar.title = "Dependent Variable:",
+    model.title = ""
+  )
+)
+
+cat("\\clearpage")
+
+```
+
+**Use of Force**
+
+In contrast to frisk decisions, overall racial differences in the use of force are comparatively small once controls and fixed effects are included. In the baseline specification, the coefficients on Black and Hispanic are substantively small and statistically insignificant. Force is strongly predicted by violent suspicion, appearance-based suspicion, and crime-location suspicion, indicating that officers’ use of force is closely tied to documented threat-related factors.
+
+However, interaction models reveal that some suspicion categories operate differently across racial groups. For example, crime-location suspicion and suspicious object suspicion have smaller marginal effects on force for minority suspects in certain specifications. These patterns suggest heterogeneity in how suspicion factors are translated into force decisions, though the magnitude of racial differences in overall force use remains modest relative to those observed for frisk decisions.
+
+**Extra Force**
+
+Restricting attention to frisks without suspicion of a weapon or violent behavior—arguably a more discretionary margin—racial differences reemerge. In the baseline specification, Black and Hispanic suspects are slightly less likely to experience extra force relative to Whites. However, once interactions are introduced, the relationship between race and extra force becomes contingent on the underlying suspicion context. Certain suspicion factors, particularly suspicious object suspicion, have significantly different marginal effects across racial groups even within this restricted sample.
