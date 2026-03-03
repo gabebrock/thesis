@@ -75,6 +75,4 @@ nyc_census2020_trc <- get_decennial(
     .default = .
   ))
 
-rm()
-
 .setup_complete_census <- TRUE

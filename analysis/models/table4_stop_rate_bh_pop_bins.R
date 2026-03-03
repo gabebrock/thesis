@@ -12,7 +12,7 @@
 #' population density (pop_density), and percentage of males aged 18–24 (pct_18_24).
 
 # Using pct_year_ols from ~/analysis/test-hitrate.qmd
-pct_year_ols_w_race_bins <- pct_year_ols %>%
+pct_year_ols_w_race_bins <- test_pct_month_full_lagged %>%
   mutate(
     black_cat = cut(
       pct_black,
@@ -42,35 +42,73 @@ pct_year_ols_w_race_bins <- pct_year_ols_w_race_bins %>%
 # Model with Black concentration
 model_black <- feols(
   log_stops ~ black_cat +
-    lag_log_nonviolent_rate +
-    lag_log_violent_rate +
+    lag_nonviolent_rate +
+    lag_violent_rate +
     pct_public_housing +
     pop_density +
-    pct_18_24,
-  data = pct_year_ols_w_race_bins
+    pct_18_24 | BoroName,
+  data = pct_year_ols_w_race_bins,
+  cluster = "pct"
+)
+
+# black:bloomberg
+feols(
+  log_stops ~ black_cat +
+    lag_nonviolent_rate +
+    lag_violent_rate +
+    pct_public_housing +
+    pop_density +
+    pct_18_24 | BoroName,
+  data = pct_year_ols_w_race_bins %>% filter(year <= 2013),
+  cluster = "pct"
+)
+
+# black:deblasio
+feols(
+  log_stops ~ black_cat +
+    lag_nonviolent_rate +
+    lag_violent_rate +
+    pct_public_housing +
+    pop_density +
+    pct_18_24 | BoroName,
+  data = pct_year_ols_w_race_bins %>% filter(year >= 2014 & year <= 2021),
+  cluster = "pct"
+)
+
+# black:adams
+feols(
+  log_stops ~ black_cat +
+    lag_nonviolent_rate +
+    lag_violent_rate +
+    pct_public_housing +
+    pop_density +
+    pct_18_24 | BoroName,
+  data = pct_year_ols_w_race_bins %>% filter(year >= 2022),
+  cluster = "pct"
 )
 
 # Model with Hispanics
 model_hisp <- feols(
   log_stops ~ hisp_cat +
-    lag_log_nonviolent_rate +
-    lag_log_violent_rate +
+    lag_nonviolent_rate +
+    lag_violent_rate +
     pct_public_housing +
     pop_density +
-    pct_18_24,
-  data = pct_year_ols_w_race_bins
+    pct_18_24 | BoroName,
+  data = pct_year_ols_w_race_bins,
+  cluster = "pct"
 )
 
 # Minority Model
 model_bh <- feols(
-  log_stops ~ black_cat +
-    hisp_cat +
-    lag_log_nonviolent_rate +
-    lag_log_violent_rate +
+  log_stops ~ black_cat + hisp_cat +
+    lag_nonviolent_rate +
+    lag_violent_rate +
     pct_public_housing +
     pop_density +
-    pct_18_24,
-  data = pct_year_ols_w_race_bins
+    pct_18_24 | BoroName,
+  data = pct_year_ols_w_race_bins,
+  cluster = "pct"
 )
 
 etable(
@@ -109,7 +147,7 @@ etable(
   ),
   title = "Table 3: OLS Regression of Stop Rates per 10,000 Persons (Logged), Controlling for Crime Rates and Socioeconomic Factors, NYPD Precincts, 2009–2023",
   se.below = TRUE,
-  tex = TRUE
+  view = TRUE
 )
 
 #' We estimate precinct-level regressions allowing time trends in pedestrian 

@@ -33,15 +33,184 @@ load("~/Projects/thesis/data/derived/sqf_model_data.rda")
 
 ```
 
+# Descriptive Statistics
+
+```{r}
+# ============================================================
+# Descriptive Analysis: Stop Characteristics Across Administrations
+# Bloomberg (2009–2013) vs. de Blasio (2014–2021)
+# Unit of observation: precinct × month
+# ============================================================
+
+library(tidyverse)
+library(scales)
+library(patchwork)
+
+# ------------------------------------------------------------
+# 0. Administration labels
+# ------------------------------------------------------------
+
+df <- test_pct_month_full |>
+  mutate(
+    administration = case_when(
+      year <= 2013 ~ "Bloomberg\n(2009–2013)",
+      year <= 2021 ~ "de Blasio\n(2014–2021)",
+      TRUE         ~ "Adams\n(2022+)"
+    ),
+    administration = factor(administration,
+                            levels = c("Bloomberg\n(2009–2013)",
+                                       "de Blasio\n(2014–2021)",
+                                       "Adams\n(2022+)"))
+  )
+
+# Collapse to annual totals for many plots
+annual <- df |>
+  group_by(year, administration) |>
+  summarize(
+    total_stops        = sum(stops, na.rm = TRUE),
+    # Suspicion categories (precinct-level counts already summed upstream)
+    crime_Violent      = sum(crime_Violent,      na.rm = TRUE),
+    crime_Weapons      = sum(crime_Weapons,      na.rm = TRUE),
+    crime_Property     = sum(crime_Property,     na.rm = TRUE),
+    crime_Drug         = sum(crime_Drug,         na.rm = TRUE),
+    crime_Trespass     = sum(crime_Trespass,     na.rm = TRUE),
+    crime_QualityOfLife= sum(crime_QualityOfLife,na.rm = TRUE),
+    crime_Other        = sum(crime_Other,        na.rm = TRUE),
+    # Charge severity
+    felony             = sum(felony,             na.rm = TRUE),
+    misdemeanor        = sum(misdemeanor,        na.rm = TRUE),
+    violation          = sum(violation,          na.rm = TRUE),
+    # Neighborhood demographics (pop-weighted means via total_pop)
+    total_pop          = sum(total_pop,          na.rm = TRUE),
+    black_pop_w        = sum(black_pop * stops,  na.rm = TRUE),
+    hisp_pop_w         = sum(hisp_pop  * stops,  na.rm = TRUE),
+    white_pop_w        = sum(white_pop * stops,  na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(
+    # Stop-weighted % neighborhood race
+    pct_black_nbhd = black_pop_w / (total_stops * mean(df$total_pop / nrow(df))),
+    pct_hisp_nbhd  = hisp_pop_w  / (total_stops * mean(df$total_pop / nrow(df))),
+    pct_white_nbhd = white_pop_w / (total_stops * mean(df$total_pop / nrow(df)))
+  )
+
+# Administration-level summary (for bar / table comparisons)
+admin_summary <- df |>
+  group_by(administration) |>
+  summarize(
+    total_stops         = sum(stops,              na.rm = TRUE),
+    crime_Violent       = sum(crime_Violent,      na.rm = TRUE),
+    crime_Weapons       = sum(crime_Weapons,      na.rm = TRUE),
+    crime_Property      = sum(crime_Property,     na.rm = TRUE),
+    crime_Drug          = sum(crime_Drug,         na.rm = TRUE),
+    crime_Trespass      = sum(crime_Trespass,     na.rm = TRUE),
+    crime_QualityOfLife = sum(crime_QualityOfLife,na.rm = TRUE),
+    crime_Other         = sum(crime_Other,        na.rm = TRUE),
+    felony              = sum(felony,             na.rm = TRUE),
+    misdemeanor         = sum(misdemeanor,        na.rm = TRUE),
+    violation           = sum(violation,          na.rm = TRUE),
+    # Stop-weighted precinct % Black
+    sw_pct_black = weighted.mean(pct_black, w = stops, na.rm = TRUE),
+    sw_pct_hisp  = weighted.mean(pct_hisp,  w = stops, na.rm = TRUE),
+    sw_pct_white = weighted.mean(pct_white, w = stops, na.rm = TRUE),
+    # Precinct-level: average stops per precinct-month
+    avg_stops_per_pct_month = mean(stops, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(
+    across(crime_Violent:crime_Other, ~ .x / total_stops, .names = "share_{.col}")
+  )
+
+# ------------------------------------------------------------
+# THEME
+# ------------------------------------------------------------
+
+theme_stops <- theme_minimal(base_family = "sans") +
+  theme(
+    plot.title        = element_text(face = "bold", size = 13),
+    plot.subtitle     = element_text(size = 10, color = "grey40"),
+    axis.title        = element_text(size = 9),
+    legend.position   = "bottom",
+    panel.grid.minor  = element_blank(),
+    strip.text        = element_text(face = "bold")
+  )
+
+admin_colors <- c(
+  "Bloomberg\n(2009–2013)" = "#1d3557",
+  "De Blasio\n(2014–2021)" = "#e63946",
+  "Adams\n(2022-2025)"     = "#457b9d"
+)
+
+# ============================================================
+# FIGURE 1 — Total annual stops
+# ============================================================
+
+p1 <- annual |>
+  ggplot(aes(x = year, y = total_stops / 1e3, fill = administration)) +
+  geom_col(width = 0.8) +
+  geom_vline(xintercept = 2013.5, linetype = "dashed", color = "grey50") +
+  annotate("text", x = 2013.5, y = Inf, label = "Bloomberg → De Blasio",
+           hjust = -0.05, vjust = 1.5, size = 3, color = "grey40") +
+  scale_fill_manual(values = admin_colors, name = NULL) +
+  scale_y_continuous(labels = label_comma(suffix = "k")) +
+  scale_x_continuous(breaks = 2009:max(df$year, na.rm = TRUE)) +
+  labs(x = NULL, y = "Stops (thousands)") +
+  theme_stops +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# ============================================================
+# FIGURE 4 — Stop-weighted neighbourhood racial composition
+# ============================================================
+
+race_long <- df |>
+  group_by(year, administration) |>
+  summarise(
+    Black    = weighted.mean(pct_black, w = stops, na.rm = TRUE),
+    Hispanic = weighted.mean(pct_hisp,  w = stops, na.rm = TRUE),
+    White    = weighted.mean(pct_white, w = stops, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  pivot_longer(c(Black, Hispanic, White),
+               names_to  = "group",
+               values_to = "pct")
+
+p4 <- race_long |>
+  ggplot(aes(x = year, y = pct, color = group, group = group)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  geom_vline(xintercept = 2013.5, linetype = "dashed", color = "grey50") +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  scale_x_continuous(breaks = seq(2009, max(df$year, na.rm = TRUE), 2)) +
+  scale_color_manual(values = c(Black = "#2d6a4f", Hispanic = "#d4a017", White = "#457b9d"),
+                     name = NULL) +
+  labs(title = "Figure 4. Stop-Weighted Neighborhood Racial Composition",
+       subtitle = "% of neighborhood race group, weighted by precinct stop volume",
+       x = NULL, y = "Stop-weighted % of precinct pop.") +
+  theme_stops +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# ============================================================
+# SAVE ALL FIGURES
+# ============================================================
+
+# Individual saves
+ggsave("fig1_total_stops.png",        p1, width = 9, height = 5, dpi = 150)
+ggsave("fig4_neighbourhood_race.png", p4, width = 9, height = 5, dpi = 150)
+
+message("All figures saved.")
+```
+Given that stops fell from nearly seven-hundred-thousand under Bloomberg to twelve-thousand under de Blasio, the people being stopped almost certainly became a very different sample. It follows that officers became far more selective in who they stopped and that the extent to which race, at the precinct- and individual level, became a significant predictor of stop activity and outcomes likely diminished.
+
 # Frequency of Stops
 
-I estimate the effect of precinct-level racial composition on stop frequency, controlling for lagged crime rates. Given that the CompStat procedure will have its most substantive effect on stop activity following a month of crime increase, I consider the previous month’s crime totals. To account for confounding variables, I also include borough- and precinct-level fixed effects, considering that within-borough socioeconomic factors like racial composition can vary vastly from precinct to precinct.[^1]
+To understand how the relationship between race and street stops, I first estimate the effect of precinct-level racial composition on stop frequency, controlling for lagged crime rates. Given that the CompStat procedure will have its most substantive effect on stop activity following a month of crime increase, I consider the previous month’s crime totals. To account for confounding variables, I also include borough- and precinct-level fixed effects, considering that within-borough socioeconomic factors like racial composition can vary vastly from precinct to precinct.[^1]
 
 [^1]: Borough boundaries, while being geographically defined, have had little impact on the demographic development of the city. Brooklyn, for instance, has large pockets of majority-Black, -White, and -Hispanic census tracts. Considering precinct-level effects helps to account for the resulting influence of micro-level socioeconomic factors. For more discussion on this, view the above section on Racial Segregation.
 
 Table 1 presents a series of regressions to examine whether precinct-level racial composition affects stop frequency. Models 1 and 2 show that local racial composition is a significant predictor of stop frequency, even after controlling for other factors, such as crime, demography, and social conditions. Notably, the effect size for Black is extremely positive and significant. The effect for Hispanics, while smaller, is still solidly positive and statistically significant.
 
-As expected, as we include more cofounders, the effect becomes smaller for both groups, but when considering borough-level fixed effects in Model 4, the effect of race becomes almost nullified for Blacks and Hispanics, suggesting that there is a substantive difference in racial dynamics across boroughs. Furthermore, this contradicts the findings of Fagan 2022, which found that when controlling for borough effects, the effect for % Black increases substantially, and the effect for % Hispanic is no longer significant but became positive.
+As expected, as we include more confounding variables, the effect becomes smaller for both groups, but when considering borough-level fixed effects in Model 4, the effect of race becomes almost nullified for Blacks and Hispanics, suggesting that there is a substantive difference in racial dynamics across boroughs.
 
 Model 5 includes crime, precinct-level socioeconomic factors, and borough-fixed effects. Including the crime rate magnifies the effect that % Black has on stop frequency, further indicating that Blacks have been over-policed during modern stop-and-frisk, resulting in a coefficient almost the same magnitude as the model only considering race. Model 5 also further decreases the effect of % Hispanic on stop frequency, but this effect is not significant. Overall, it seems that stops are responsive to crime rates, but the Black population proportion in a precinct remains an incredibly significant predictor of stops at the $p<0.05$ level.
 
@@ -159,7 +328,7 @@ Highlighting this commitment to reform is important because of the resurgence of
 
 # Stop Rates by Precinct Racial Composition
 
-Table 3 breaks down precinct-level stop rate to increments in the concentrations of Black or Hispanic residents ($20-40$, $40-60$, and $60-100\%$). The model estimates effects compared to the precincts with the $0-20\%$ of Black or Hispanic residents (reference category: more than $80\%$ White). As concentrations of Black residents increase, officer allocations also increase. Even when controlling for crime, at each level of minority population concentration, there are more stops than in precincts with the lowest concentrations of Black and Hispanic residents.
+Table 3 breaks down precinct-level stop rate to increments in the concentrations of Black or Hispanic residents ($20-40$, $40-60$, and $60-100\%$). The model estimates effects compared to the precincts with the $0-20\%$ of Black or Hispanic residents (reference category: more than $80\%$ White). As concentrations of Black residents increase, stop rates also increase. Even when controlling for crime, at each level of minority population concentration, there are more stops than in precincts with the lowest concentrations of Black and Hispanic residents.
 
 ```{r, include = FALSE}
 
@@ -205,21 +374,67 @@ cat(etable(
   view = FALSE
 ))
 ```
+In precincts $40–60\%$ Black, stop rates are significantly higher than majority-white precincts ($\beta=0.4641,\ p<0.1$), and this effect nearly doubles in precincts $60–100\%$ Black ($\beta=0.7174,\ p<0.01$), indicating a strong monotonic relationship between Black population concentration and stop intensity. The $20–40\%$ bin, while positive ($\beta=0.2640$), does not reach statistical significance, however the overall pattern suggests that racial composition plays an outsized role in predicting stop intensity beyond what crime alone would justify. Notably, the $20–40\%$ Hispanic bin is also positive and significant ($\beta=0.3164,\ p<0.1$), though higher concentration bins are not, suggesting the Hispanic relationship is present but does not scale in the same way as for Black residents. 
 
-In precincts $20–40\%$ Black, the estimate is positive and statistically significant effect on stop rates ($\beta=\ 0.3438,\ p\ <\ 0.05$), suggesting neighborhoods with moderate Black populations experience higher stop rates than the reference group but notably in precincts $60-100\%$ Black, the estimate is extremely positive and statistically significant $\left(\beta=0.9135,p<0.01\right)$, indicating that neighborhoods with the highest proportion of Black residents experience substantially higher stop rates.
+My findings indicate that racial composition, particularly a high percentage of Black residents, and the proportion of young adults are strong predictors of higher stop rates. Other demographic variables, prior crime complaints, and public housing shares appear less influential in this specification. The low $R^2$ value suggests that other unobserved factors also play a role in explaining variance of stop frequency. 
 
-My findings indicate that racial composition, particularly a high percentage of Black residents, and the proportion of young adults are strong predictors of higher stop rates. Other demographic variables, prior crime complaints, and public housing shares appear less influential in this specification. The modest R² suggests that other unobserved factors also play a role in explaining neighborhood stop rates. Across all three mayoral administrations, higher concentrations of Black residents are associated with significantly higher stop rates. This pattern suggests that, in precincts with larger Black populations (above $40\%$ Black), police conduct more stops in response to crime relative to precincts with lower minority concentrations.
+However, when disaggregated across all three mayoral administrations, the relationship between Black population concentration and stop rates shifts substantially. Under Bloomberg, no level of Black or Hispanic residential concentration significantly predicts stop frequency, suggesting stops were distributed broadly rather than concentrated in majority-Black precincts specifically, which makes sense due to the sheer volume of stops during the period. And while there was no effect found under de Blasio, this changes dramatically under Mayor Adams. Black population concentration was an increasingly strong predictor of stop frequency ($\beta=0.247,\ p<0.05$; $\beta=0.509,\ p<0.01$; $\beta=0.730,\ p<0.001$), independent of crime rates and borough-level effects. This suggests that post-*Floyd*, as overall stop activity winds down, it has become increasingly concentrated in majority-Black neighborhoods within boroughs, representing a geographic intensification of racial disparity even as overall stop volume remains far below Bloomberg-era levels.
 
 Interestingly, this relationship does not consistently hold for Hispanic populations once stops are de-aggregated by administration. Unlike the increase observed for Black population shares, coefficients for Hispanic concentration are smaller, less consistent, and often statistically insignificant. This finding runs counter to the pattern suggested by Fagan (2022) and indicates that the relationship between neighborhood racial composition and stop activity differs meaningfully between Black and Hispanic communities.
 
+Moran's testing confirms that majority-Black, -Hispanic, and -White neighborhoods each cluster strongly ($\% \ \text{Black} \ (I = 0.597)$, $\% \ \text{Hispanic} \ (I = 0.727)$, and $\% \ \text{White} \ (I = 0.680)$, all $p < 0.001$), indicating high levels of residential segregation across the city. However, stop rates (logged) exhibit only weak spatial clustering $(I = 0.125, p = 0.026)$, and bivariate tests show no significant relationship between precinct-level stop rate and racial composition of neighboring precincts. This divergence suggests that minority threat might not generalize at the precinct-level and that other factors may be more influential in driving stop intensity. However, precinct-level analysis only reveals a portion of the racial dynamics at play, and the following section will address how race effects the outcomes of similarly-situated pedestrians.
+
+```{r Moran's testing for spatial concentration, include=FALSE}
+
+library(spdep)
+
+test_pct_month_morans <- st_as_sf(test_pct_month_full)
+
+# Collapse to precinct level (Moran's I needs one row per precinct, not panel)
+pct_cross <- test_pct_month_morans %>%
+  group_by(pct) %>%
+  summarise(
+    pct_black = mean(pct_black, na.rm = TRUE),
+    pct_hisp  = mean(pct_hisp,  na.rm = TRUE),
+    pct_white = mean(pct_white, na.rm = TRUE),
+    log_stops_rate = mean(log_stops_rate, na.rm = TRUE),
+    geometry = first(geometry)
+  ) %>%
+  st_as_sf()
+
+# Build spatial weights matrix from precinct contiguity
+nb <- poly2nb(pct_cross, queen = TRUE)
+lw <- nb2listw(nb, style = "W", zero.policy = TRUE)
+
+# Moran's I for stop rates
+moran.test(pct_cross$log_stops_rate, lw, zero.policy = TRUE)
+
+# Moran's I for racial composition
+moran.test(pct_cross$pct_black, lw, zero.policy = TRUE)
+moran.test(pct_cross$pct_hisp,  lw, zero.policy = TRUE)
+moran.test(pct_cross$pct_white, lw, zero.policy = TRUE)
+
+# Bivariate Moran's I: do Black precincts neighboring White precincts 
+# have higher stop rates?
+
+# Spatially lag pct_white (average white % of neighboring precincts)
+pct_cross$lag_pct_white <- lag.listw(lw, pct_cross$pct_white)
+pct_cross$lag_pct_black <- lag.listw(lw, pct_cross$pct_black)
+
+# Correlation between a precinct's stop rate and its neighbors' racial composition
+cor.test(pct_cross$log_stops_rate, pct_cross$lag_pct_white)
+cor.test(pct_cross$log_stops_rate, pct_cross$lag_pct_black)
+
+```
+
 # Estimating Disparate Treatment in Stops
 
-Given that I have established a substantive difference in frequency across periods, I will now use stop-level data to estimate disparate treatment using a set of OLS regressions with several “hit rate” measures. As mentioned in my methods discussion, I focus on *Floyd*’s claim that race is a major determinant of suspicion. To examine this claim, I estimate the effect of race on sanctions and seizures by each major suspicion factor in line with the methods used in Fagan 2022: each model is estimated with a baseline of only race factors, then with inclusion of the RS factors, and then with precinct-specific time trends. The dependent variables are:
+Given that I have established a substantive difference in frequency across periods, I will now use stop-level data to estimate disparate treatment using a set of OLS regressions with several “hit rate” measures. As mentioned in my methods discussion, I focus on *Floyd*’s claim that race is a major determinant of suspicion. To examine this claim, I estimate the effect of race on sanctions and seizures by each major suspicion factor in line with the methods used in Fagan 2022: each model is estimated with a baseline of only race factors, then with inclusion of the Reasonable Suspicion (RS) factors, and then with precinct-specific time trends. The dependent variables are:
 
 1.  $Summons$: whether the stop resulted in a summons (1) or not (0). 
 2.  $Arrest$: whether the stop resulted in an arrest (1) or not (0).
 3.  $Arrest \ conditional \ on \ any \ sanction$: whether there was an arrest (1) or summons (0), for those receiving any sanction, reflecting the officer’s choice of sanction.
-4.  $Sanction$: whether the stop resulted in any sanction (1) or not (0), reflecting the officer’s decision to sanction the suspect at all.
+4.  $Sanction$: whether the stop resulted in any sanction (1) or not (0), either an `arrest` or a `summons`, reflecting the officer’s decision to sanction the suspect at all.
 5.  $Seizure$: whether the stop resulted in the officer discovering an illegal item, including firearms, other weapons, or contraband (1) or not (0).
 6.  $Frisk$: whether the suspect was frisked during the course of the stop (1) or not (0).
 7.  $Search$: whether the suspect was searched during the course of the stop (1) or not (0).

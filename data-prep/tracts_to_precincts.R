@@ -1,15 +1,15 @@
 library(sf)
-nyc_census2020_pct <- st_as_sf(nyc_census2020_pct)
+library(tidycensus)
+library(blscrapeR)
 
+nyc_census2020_pct <- st_as_sf(nyc_census2020_pct)
 
 ggplot(nyc_census2020_pct) +
   geom_sf(aes(fill = factor(precinct)), color = "white", size = 0.2) +
   theme_minimal() +
   labs(
     title = "NYC Precincts",
-    fill = "Precinct"
-  )
-
+    fill = "Precinct")
 
 ggplot(nypd_sf) +
   geom_sf(aes(fill = factor(Precinct)), color = "white", size = 0.2) +
@@ -38,6 +38,11 @@ tracts_sf <- st_join(
   join = st_intersects
 )
 
+# tracts_sf <- tracts_sf %>%
+#  select(Precinct = starts_with("Precinct")) %>% 
+#  select(2) %>%
+#  mutate("Precinct" = "Precinct2")
+
 ggplot(tracts_sf) +
   geom_sf(aes(fill = factor(Precinct)), color = "white", size = 0.2) +
   theme_void() +
@@ -47,7 +52,6 @@ ggplot(tracts_sf) +
   # omit legend
   theme(legend.position = "none")
 
-
 # get nyc census tract demographic data from tidycensus
 age_vars <- c(
   "B01001_007E", "B01001_008E", "B01001_009E", "B01001_010E", # Male 18–24
@@ -55,9 +59,6 @@ age_vars <- c(
 )
 housing_vars <- c("B25024_002E", "B25024_001E")
 foreign_born_vars <- c("B05012_002E")  # Foreign-born population (total)
-
-# Add these to your variable definitions
-employment_vars <- c("B23025_007E")   # Unemployment Rate (pre-calculated)
 income_vars <- c("B19013_001E")   # Median Household Income (Dollars)
 
 get_pop <- function(year) {
@@ -72,7 +73,6 @@ get_pop <- function(year) {
                   age_vars,
                   housing_vars,
                   foreign_born_vars,
-                  employment_vars,
                   income_vars),
     state = "NY",
     county = c("New York", "Kings", "Queens", "Bronx", "Richmond"),
@@ -90,7 +90,6 @@ get_pop <- function(year) {
            white_pop = "B03002_003", # white alone, not hispanic/latino
            hisp_pop  = "B03002_012", # hispanic/latino
            foreign_born_pop = "B05012_002", # foreign-born population
-           unemployment_rate = "B23025_007", # unemployment rate
            median_income = "B19013_001" # median income
            ) %>%
     mutate(age_18_24_pop = B01001_007 + B01001_008 + B01001_009 + B01001_010 +
@@ -100,12 +99,14 @@ get_pop <- function(year) {
 }
 
 # get population data for years 2017-2024
-years <- 2009:2023
+years <- 2009:2024
 
 # retrieve and combine population data for all years
 pop_wide <- map_dfr(years, get_pop) %>%
   st_drop_geometry() %>%
-  select(GEOID, year, total_pop, black_pop, white_pop, hisp_pop, age_18_24_pop, pct_public_housing, foreign_born_pop, pct_foreign_born)
+  select(GEOID, year, total_pop, black_pop, white_pop, hisp_pop, 
+         age_18_24_pop, pct_public_housing, foreign_born_pop, pct_foreign_born, median_income)
+
 
 # join population data to tracts_sf
 pct_demo <- tracts_sf %>%
@@ -119,7 +120,8 @@ pct_demo <- tracts_sf %>%
     foreign_born_pop = sum(foreign_born_pop, na.rm = TRUE),
     age_18_24_pop = sum(age_18_24_pop, na.rm = TRUE),
     pct_public_housing = mean(pct_public_housing, na.rm = TRUE),
-    pct_foreign_born = sum(foreign_born_pop, na.rm = TRUE) / sum(total_pop, na.rm = TRUE)
+    pct_foreign_born = sum(foreign_born_pop, na.rm = TRUE) / sum(total_pop, na.rm = TRUE),
+    median_income = mean(median_income, na.rm = TRUE)
   ) %>%
   mutate(
     pct_black = black_pop / total_pop,
@@ -130,8 +132,6 @@ pct_demo <- tracts_sf %>%
   rename(pct = Precinct)
 
 saveRDS(pct_demo, file = "data/pct_demo.rds")
-  
-
 
 
 

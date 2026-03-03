@@ -4,13 +4,20 @@ library(tidyverse)
 
 # Create datasets for different mayoral administrations if they don't exist
 if (!exists("pct_month_lagged_bloomberg") || !exists("pct_month_lagged_blasio") || !exists("pct_month_lagged_adams")) {
-  pct_month_lagged_bloomberg <- test_pct_month_lagged %>%
+  pct_month_lagged_bloomberg <- test_pct_month_full_lagged %>%
     dplyr::filter(year <= 2013)  # Bloomberg era: 2002-2013
-  pct_month_lagged_blasio <- test_pct_month_lagged %>%
+  pct_month_lagged_blasio <- test_pct_month_full_lagged %>%
     dplyr::filter(year >= 2014 & year <= 2021)  # de Blasio era: 2014-2021
-  pct_month_lagged_adams <- test_pct_month_lagged %>%
+  pct_month_lagged_adams <- test_pct_month_full_lagged %>%
     dplyr::filter(year >= 2022)  # Adams era: 2022-present
 }
+
+test_pct_month_full_lagged <- test_pct_month_full_lagged %>%
+  mutate(
+    bloomberg_period = ifelse(year <= 2013, 1, 0),
+    deblasio_period  = ifelse(year >= 2014 & year <= 2021, 1, 0),
+    adams_period     = ifelse(year >= 2022, 1, 0)  # you already did this
+  )
 
 # Function to run allocation models for different administrations
 # Estimates effect of race on monthly stop frequency with progressive controls
@@ -20,7 +27,7 @@ run_allocation_models <- function(data, admin_name) {
   # Model 1: Base model with race variables and year fixed effects
   # Tests mod1_basic relationship between precinct racial composition and stop frequency
   mod1_basic <- feols(
-    log_stops ~ pct_black + pct_hisp + factor(year) | BoroName,
+    log_stops ~ pct_black + pct_hisp | pct + factor(year),
     data = data,
     cluster = "pct"
   )
@@ -32,8 +39,9 @@ run_allocation_models <- function(data, admin_name) {
   # Controls for population characteristics that might affect policing needs
   mod2_covariates <- feols(
     log_stops ~ pct_black + pct_hisp + 
-      pop_density + pct_18_24 + pct_public_housing + log(total_pop) +  
-      factor(year) | BoroName,
+      pop_density + pct_18_24 + pct_public_housing + log(total_pop) +
+      pct_foreign_born + median_income  |
+      pct + factor(year),
     data = data,
     cluster = "pct"
   )
@@ -46,8 +54,9 @@ run_allocation_models <- function(data, admin_name) {
   mod3_dynamic <- feols(
     log_stops ~ pct_black + pct_hisp +
       pop_density + pct_18_24 + pct_public_housing + log(total_pop) +
-      lag_violent_rate + lag_nonviolent_rate +
-      factor(year) | BoroName,
+      pct_foreign_born + median_income  +
+      lag_violent_rate + lag_nonviolent_rate |
+      pct + factor(year),
     data = data,
     cluster = "pct"
   )
@@ -60,9 +69,10 @@ run_allocation_models <- function(data, admin_name) {
   mod4_violent <- feols(
     log_stops ~ pct_black + pct_hisp +
       pop_density + pct_18_24 + pct_public_housing + log(total_pop) +
+      pct_foreign_born + median_income  +
       lag_violent_rate + lag_nonviolent_rate +
-      (violent_rate - lag_violent_rate) +  # Change in violent crime
-      factor(year) | BoroName,
+      (violent_rate - lag_violent_rate) / lag_violent_rate | # Change in violent crime
+      pct + factor(year) + BoroName,
     data = data,
     cluster = "pct"
   )
@@ -74,10 +84,11 @@ run_allocation_models <- function(data, admin_name) {
   mod5_crime <- feols(
     log_stops ~ pct_black + pct_hisp +
       pop_density + pct_18_24 + pct_public_housing + log(total_pop) +
+      pct_foreign_born + median_income  +
       lag_violent_rate + lag_nonviolent_rate +
       (violent_rate - lag_violent_rate) +  # Change in violent crime
-      (nonviolent_rate - lag_nonviolent_rate) +  # Change in non-violent crime
-      factor(year) | BoroName,
+      (nonviolent_rate - lag_nonviolent_rate) / lag_violent_rate |  # Change in non-violent crime
+      pct + factor(year) + BoroName,
     data = data,
     cluster = "pct"
   )
@@ -113,10 +124,10 @@ run_allocation_models <- function(data, admin_name) {
 # ------- MAIN ANALYSIS: Run models for each mayoral administration -------
 
 cat("Starting officer allocation analysis with lagged crime rates...\n")
-cat("Total monthly observations:", nrow(test_pct_month_lagged), "\n")
+cat("Total monthly observations:", nrow(test_pct_month_full_lagged), "\n")
 
 # Run models for each time period
-models_overall <- run_allocation_models(test_pct_month_lagged, "Overall")      # Full sample
+models_overall <- run_allocation_models(test_pct_month_full_lagged, "Overall")      # Full sample
 models_bloomberg <- run_allocation_models(pct_month_lagged_bloomberg, "Bloomberg")  # 2002-2013
 models_blasio <- run_allocation_models(pct_month_lagged_blasio, "Blasio")         # 2014-2021
 models_adams <- run_allocation_models(pct_month_lagged_adams, "Adams")             # 2022-present

@@ -172,7 +172,6 @@ test_pct_crime %>%
   arrange(PD_DESC) %>%
   print(n = Inf)
 
-
 #' summarize crime data for each `pct`, `year`, and `month.`
 #' calculate the total number of `felony`, `misdemeanor`, and `violation` offenses,
 #' as well as the count of each broad offense category for each month.
@@ -193,11 +192,11 @@ test_pct_crime_month <- test_pct_crime %>%
     crime_QualityOfLife = sum(off_cat_broad == "QualityOfLife", na.rm = TRUE),
     crime_Other = sum(off_cat_broad == "Other", na.rm = TRUE)
   ) %>%
-  # remove the grouping variable.
+  # remove the grouping variable
   ungroup()
 
 test_pct_crime_month <- test_pct_crime_month %>%
-  filter(year >= 2009,
+  filter(year >= 2009 & year <= 2024,
          pct >= 1 & pct <= 123)
 
 # ----- finish prep for OLS models ----
@@ -205,7 +204,7 @@ test_pct_crime_month <- test_pct_crime_month %>%
 #' divide yearly demographic data into monthly data 
 #' by uncounting each row 12 times and creating a `month` variable
 if (!exists("pct_demo_expanded")) {
-  pct_demo <- pct_demo %>% 
+  pct_demo_month <- pct_demo %>% 
     uncount(12) %>% 
     group_by(pct, year) %>% 
     mutate(month = row_number()) %>% 
@@ -220,7 +219,7 @@ test_pct_crime_month <- test_pct_crime_month %>%
          month = as.integer(month)) 
 
 test_pct_crime_month <- test_pct_crime_month %>%
-  left_join(pct_demo, by = c("pct", "year", "month"))
+  left_join(pct_demo_month, by = c("pct", "year", "month"))
 
 # 
 test_pct_crime_month <- test_pct_crime_month %>%
@@ -230,6 +229,48 @@ test_pct_crime_month <- test_pct_crime_month %>%
   mutate(violent_rate    = log((crime_Violent + 1) / total_pop * 1000),
          nonviolent_rate = log((nonviolent_crime + 1) / total_pop * 1000)) %>%
   mutate(date = as.Date(paste0(year_month, "-01")))
+
+
+library(blscrapeR)
+library(dplyr)
+
+county_fips <- c(
+  Bronx = "36005",
+  Brooklyn = "36047",
+  Manhattan = "36061",
+  Queens = "36081",
+  `Staten Island` = "36085"
+)
+
+get_monthly_unemp <- function(fips) {
+  series_id <- paste0("LAUCN", fips, "0000000003") # monthly unemployment rate
+  bls_api(series_id,
+          startyear = 2009,
+          endyear = 2024,
+          registrationKey = Sys.getenv("BLS_KEY")) %>%
+    mutate(
+      year = as.integer(year),
+      month = match(periodName, month.name),  # converts "January" → 1, etc.
+      unemployment_rate = as.numeric(value),
+      county_fips = fips
+    ) %>%
+    select(year, month, unemployment_rate, county_fips)
+}
+
+nyc_unemp_month <- map_dfr(county_fips, get_monthly_unemp)
+
+boro_fips <- tibble(
+  BoroName = c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island"),
+  county_fips = c("36005", "36047", "36061", "36081", "36085")
+)
+
+nyc_unemp_month <- nyc_unemp_month %>%
+  left_join(boro_fips, by = "county_fips") %>%
+  select(year, month, unemployment_rate, BoroName)
+
+test_pct_crime_month <- test_pct_crime_month %>%
+  left_join(nyc_unemp_month, by = c("year", "month", "BoroName")) %>%
+  rename(unemp_rate = unemployment_rate)
 
 #' add precinct area (derived from sf geometries) and build the final monthly panel.
 #'
@@ -262,7 +303,8 @@ test_pct_crime_month <- test_pct_crime_month %>%
       pct_white      = white_pop / total_pop,
       pct_hisp       = hisp_pop / total_pop,
       pct_18_24      = age_18_24_pop / total_pop,
-      log_stops_rate = log((stops + 1) / total_pop * 1000)
+      log_stops_rate = log((stops + 1) / total_pop * 1000),
+      lag_unemp = dplyr::lag(unemp_rate, 1)
     ) %>%
     filter(!is.na(violent_rate), !is.na(pct_black)) %>%
     left_join(pct_areas, by = c("pct" = "Precinct")) %>%
@@ -270,6 +312,10 @@ test_pct_crime_month <- test_pct_crime_month %>%
 
   # Sort by precinct and date for proper lagging
   test_pct_month_full <- test_pct_month_full %>%
+    mutate(date = date.x,
+           month = month.x,
+           year = year.x) %>%
+    select(-date.x, -date.y, -month.x, -month.y, -year.x, -year.y) %>%
     arrange(pct, date)
 
 # Create lagged variables (1-month lags, within precinct)
@@ -289,7 +335,7 @@ test_pct_crime_month <- test_pct_crime_month %>%
     ) %>%
     ungroup() 
   
-  test_pct_month_lagged <- test_pct_month_full %>%
+  test_pct_month_full_lagged <- test_pct_month_full %>%
     # Remove first month for each precinct due to missing lag
     filter(!is.na(lag_violent_rate))
   
@@ -298,4 +344,25 @@ test_pct_crime_month <- test_pct_crime_month %>%
   cat("Number of precincts:", length(unique(test_pct_month_full_lagged$pct)), "\n")
   cat("Date range:", min(test_pct_month_full_lagged$year_month), "to", max(test_pct_month_full_lagged$year_month), "\n")
 
+  
+saveRDS(test_pct_month_full_lagged, file = "data/test_pct_month_full_lagged.rds")
 
+race_monthly_counts <- sqf_ols %>%
+  group_by(year, month, pct) %>%
+  summarize(
+    stops_black = sum(race == "BLACK", na.rm = TRUE),
+    stops_hisp = sum(race == "HISPANIC", na.rm = TRUE),
+    stops_white = sum(race == "WHITE", na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# Create logged versions of these counts (log(count + 1) to avoid log(0))
+race_monthly_counts <- race_monthly_counts %>%
+  mutate(
+    log_stops_black = log(stops_black + 1),
+    log_stops_hisp = log(stops_hisp + 1),
+    log_stops_white = log(stops_white + 1)
+  )
+
+test_pct_month_full_lagged <- test_pct_month_full_lagged %>%
+  left_join(race_monthly_counts, by = c("year", "month", "pct"))

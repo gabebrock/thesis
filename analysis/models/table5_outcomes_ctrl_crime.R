@@ -4,7 +4,7 @@
 
   # Using `sqf_ols` from ~/analysis/test-hitrate.qmd, chunk {r stop-level data prep}
   # `sqf_ols` is saved to an rds file in that chunk and referenced here for rendering
-  sqf_ols <- readRDS("~/Projects/thesis/data/derived/sqf_ols.rds")
+  # sqf_ols <- readRDS("~/Projects/thesis/data/derived/sqf_ols.rds")
 
   if (inherits(sqf_ols, "sf")) {
     sqf_ols <- sf::st_drop_geometry(sqf_ols)
