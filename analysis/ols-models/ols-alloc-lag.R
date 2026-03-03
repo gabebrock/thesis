@@ -1,149 +1,138 @@
+# Load required libraries
 library(fixest)
 library(tidyverse)
 
+# Create datasets for different mayoral administrations if they don't exist
 if (!exists("pct_month_lagged_bloomberg") || !exists("pct_month_lagged_blasio") || !exists("pct_month_lagged_adams")) {
-  pct_month_lagged_bloomberg <- pct_month_lagged %>%
-    dplyr::filter(year <= 2013)
-  pct_month_lagged_blasio <- pct_month_lagged %>%
-    dplyr::filter(year >= 2014 & year <= 2021)
-  pct_month_lagged_adams <- pct_month_lagged %>%
-    dplyr::filter(year >= 2022)
+  pct_month_lagged_bloomberg <- test_pct_month_lagged %>%
+    dplyr::filter(year <= 2013)  # Bloomberg era: 2002-2013
+  pct_month_lagged_blasio <- test_pct_month_lagged %>%
+    dplyr::filter(year >= 2014 & year <= 2021)  # de Blasio era: 2014-2021
+  pct_month_lagged_adams <- test_pct_month_lagged %>%
+    dplyr::filter(year >= 2022)  # Adams era: 2022-present
 }
 
-# Function to run models for different administrations
+# Function to run allocation models for different administrations
+# Estimates effect of race on monthly stop frequency with progressive controls
 run_allocation_models <- function(data, admin_name) {
   cat("\n=== Models for", admin_name, "===\n")
   
-  # Model 1: Basic model with lagged crime rates
-  mod_alloc_lag1 <- feols(
-    log_stops ~ pct_black + pct_hisp + 
-      lag_violent_rate + lag_nonviolent_rate +
-      pop_density + pct_18_24 + pct_public_housing + 
-      factor(year) + factor(month) | BoroName,
+  # Model 1: Base model with race variables and year fixed effects
+  # Tests mod1_basic relationship between precinct racial composition and stop frequency
+  mod1_basic <- feols(
+    log_stops ~ pct_black + pct_hisp + factor(year) | BoroName,
     data = data,
     cluster = "pct"
   )
   
-  cat("\nModel 1: Basic lagged crime model\n")
-  print(summary(mod_alloc_lag1))
+  cat("\nModel 1: Race + Year FE\n")
+  print(summary(mod1_basic))
   
-  # Model 2: Include lagged stops to capture persistence
-  mod_alloc_lag2 <- feols(
+  # Model 2: Add socioeconomic and demographic controls
+  # Controls for population characteristics that might affect policing needs
+  mod2_covariates <- feols(
     log_stops ~ pct_black + pct_hisp + 
-      lag_violent_rate + lag_nonviolent_rate +
-      lag_log_stops +
-      pop_density + pct_18_24 + pct_public_housing + 
-      factor(year) + factor(month) | BoroName,
+      pop_density + pct_18_24 + pct_public_housing + log(total_pop) +  
+      factor(year) | BoroName,
     data = data,
     cluster = "pct"
   )
   
-  cat("\nModel 2: With lagged stops\n")
-  print(summary(mod_alloc_lag2))
+  cat("\nModel 2: + Socioeconomic Controls\n")
+  print(summary(mod2_covariates))
   
-  # Model 3: Dynamic model with both current and lagged crime rates
-  mod_alloc_dynamic <- feols(
-    log_stops ~ pct_black + pct_hisp + 
-      violent_rate_month + nonviolent_rate_month +
+  # Model 3: Add lagged crime rates (dynamic model)
+  # Tests whether police respond to crime rates from previous month
+  mod3_dynamic <- feols(
+    log_stops ~ pct_black + pct_hisp +
+      pop_density + pct_18_24 + pct_public_housing + log(total_pop) +
       lag_violent_rate + lag_nonviolent_rate +
-      lag_log_stops +
-      pop_density + pct_18_24 + pct_public_housing + 
-      factor(year) + factor(month) | BoroName,
+      factor(year) | BoroName,
     data = data,
     cluster = "pct"
   )
   
-  cat("\nModel 3: Dynamic model\n")
-  print(summary(mod_alloc_dynamic))
+  cat("\nModel 3: + Lagged Crime Rates\n")
+  print(summary(mod3_dynamic))
   
-  # Model 4: Model 3 + borough FE only (no year/month FE)
-  mod4 <- feols(
-    log_stops ~ pct_black + pct_hisp + 
+  # Model 4: Add change in violent crime rate
+  # Tests whether changes in crime rates affect police allocation
+  mod4_violent <- feols(
+    log_stops ~ pct_black + pct_hisp +
+      pop_density + pct_18_24 + pct_public_housing + log(total_pop) +
       lag_violent_rate + lag_nonviolent_rate +
-      lag_log_stops +
-      pop_density + pct_18_24 + pct_public_housing | BoroName,
+      (violent_rate - lag_violent_rate) +  # Change in violent crime
+      factor(year) | BoroName,
     data = data,
     cluster = "pct"
   )
   
-  cat("\nModel 4: Borough FE only\n")
-  print(summary(mod4))
+  cat("\nModel 4: + \n𝚫 Violent Crime Rate")
+  print(summary(mod4_violent))
   
-  # Model 5: Model 4 + change in violent crime rate
-  # Create change in violent crime rate
-  data_with_change <- data %>%
-    group_by(pct) %>%
-    arrange(date) %>%
-    mutate(
-      change_violent_rate = violent_rate_month - lag(violent_rate_month)
-    ) %>%
-    ungroup() %>%
-    filter(!is.na(change_violent_rate))
-  
-  mod5 <- feols(
-    log_stops ~ pct_black + pct_hisp + 
+  # Model 5: Add change in total crime rate
+  mod5_crime <- feols(
+    log_stops ~ pct_black + pct_hisp +
+      pop_density + pct_18_24 + pct_public_housing + log(total_pop) +
       lag_violent_rate + lag_nonviolent_rate +
-      change_violent_rate +
-      pop_density + pct_18_24 + pct_public_housing | BoroName,
-    data = data_with_change,
+      (violent_rate - lag_violent_rate) +  # Change in violent crime
+      (nonviolent_rate - lag_nonviolent_rate) +  # Change in non-violent crime
+      factor(year) | BoroName,
+    data = data,
     cluster = "pct"
   )
   
-  cat("\nModel 5: + Change in violent crime\n")
-  print(summary(mod5))
+  cat("\nModel 5: + \n𝚫 Total Crime Rate\n")
+  print(summary(mod4_violent))
   
-  # Compare models
+  # Generate model comparison table
   cat("\n=== Model Comparison for", admin_name, "===\n")
-  etable(mod_alloc_lag1, mod_alloc_lag2, mod_alloc_dynamic, mod4, mod5,
+  etable(mod1_basic, mod2_covariates, mod3_dynamic, mod4_violent, mod5_crime,
          headers = c("(1)", "(2)", "(3)", "(4)", "(5)"),
-         keep = c("pct_black", "pct_hisp", "lag_violent_rate", "lag_nonviolent_rate", "lag_log_stops", "change_violent_rate", "constant"),
+         keep = c("pct_black", "pct_hisp", "pop_density", "pct_18_24", "pct_public_housing", "log(total_pop)", "lag_violent_rate", "lag_nonviolent_rate", "constant"),
          extralines = list(
            "R-squared" = c("r2", "r2", "r2", "r2", "r2"), 
            "Observations" = c("nobs", "nobs", "nobs", "nobs", "nobs"),
-           "Year FE" = c("Yes", "Yes", "Yes", "No", "No"),
-           "Month FE" = c("Yes", "Yes", "Yes", "No", "No"),
+           "Year FE" = c("Yes", "Yes", "Yes", "Yes", "Yes"),
            "Borough FE" = c("Yes", "Yes", "Yes", "Yes", "Yes")
          ),
          title = paste("Table X. OLS Regressions of Precinct Officer Allocations (logged) by Precinct Racial Composition and Social and Crime Conditions,", admin_name, "(b, SE, p)"),
          signifCode = c("***" = 0.001, "**" = 0.01, "*" = 0.05)
          )
   
-  # Return model list
+  # Return models in a named list for further analysis
   return(list(
-    basic = mod_alloc_lag1,
-    with_lag_stops = mod_alloc_lag2,
-    dynamic = mod_alloc_dynamic,
-    borough_fe_only = mod4,
-    with_change = mod5
+    mod1_basic = mod1_basic,           # Model 1: Race + Year FE
+    mod2_covariates = mod2_covariates,  # Model 2: + Socioeconomic controls
+    mod3_dynamic = mod3_dynamic,       # Model 3: + Lagged crime rates
+    mod4_violent = mod4_violent,       # Model 4: + Violent Crime change
+    mod5_crime = mod5_crime            # Model 5: + Total crime change
   ))
 }
 
-# Run models for each administration
+# ------- MAIN ANALYSIS: Run models for each mayoral administration -------
+
 cat("Starting officer allocation analysis with lagged crime rates...\n")
-cat("Total monthly observations:", nrow(pct_month_lagged), "\n")
+cat("Total monthly observations:", nrow(test_pct_month_lagged), "\n")
 
-# Overall models (base data) 
-models_overall <- run_allocation_models(pct_month_lagged, "Overall")
-
-# Bloomberg era
-models_bloomberg <- run_allocation_models(pct_month_lagged_bloomberg, "Bloomberg")
-
-# Blasio era  
-models_blasio <- run_allocation_models(pct_month_lagged_blasio, "Blasio")
-
-# Adams era
-models_adams <- run_allocation_models(pct_month_lagged_adams, "Adams")
+# Run models for each time period
+models_overall <- run_allocation_models(test_pct_month_lagged, "Overall")      # Full sample
+models_bloomberg <- run_allocation_models(pct_month_lagged_bloomberg, "Bloomberg")  # 2002-2013
+models_blasio <- run_allocation_models(pct_month_lagged_blasio, "Blasio")         # 2014-2021
+models_adams <- run_allocation_models(pct_month_lagged_adams, "Adams")             # 2022-present
 
 cat("\n=== Analysis Complete ===\n")
 
+# ------- LaTex Tables -------
 
-# --- General Models ----
+
+# Table 1: Main results showing model progression for overall sample
 table1_stop_freq <- etable(
-  models_overall$basic,
-  models_overall$with_lag_stops,
-  models_overall$dynamic,
-  models_overall$borough_fe_only,
-  models_overall$with_change,
+  models_overall$mod1_basic,
+  models_overall$mod2_covariates,
+  models_overall$mod3_dynamic,
+  models_overall$mod4_violent,
+  models_overall$mod5_crime,
   keep = c("%pct_black", "%pct_hisp", "%constant"),
   dict = c(
     pct_black = "% Black",
@@ -151,11 +140,11 @@ table1_stop_freq <- etable(
     constant = "Constant"
   ),
   headers = c(
-    "Base Model\n(Race Only)", 
-    "Model 1\n+ Lagged Stops", 
-    "Model 2\n+ Current Crime",
-    "Model 3\n+ Borough FE Only",
-    "Model 4\n+ Change in Crime"
+    "(1)\nRace Only", 
+    "(2)\n+ Covariates", 
+    "(3)\n+ Lagged Crime",
+    "(4)\n+ Violent Crime Change",
+    "(5)\n+ Total Crime Change"
   ),
   title = "Table 1. OLS Regressions of Precinct Officer Allocations (logged) by Precinct Racial Composition and Social and Crime Conditions, Monthly Data (b, SE, p)",
   digits = 3,
@@ -163,8 +152,7 @@ table1_stop_freq <- etable(
   se.below = TRUE,
   fitstat = ~ r2 + n,
   extralines = list(
-    "Year FE" = c("Yes", "Yes", "Yes", "No", "No"),
-    "Month FE" = c("Yes", "Yes", "Yes", "No", "No"), 
+    "Year FE" = c("Yes", "Yes", "Yes", "Yes", "Yes"),
     "Borough FE" = c("Yes", "Yes", "Yes", "Yes", "Yes"),
     "Clustered SE" = c("Precinct", "Precinct", "Precinct", "Precinct", "Precinct")
   ),
@@ -174,16 +162,16 @@ table1_stop_freq <- etable(
 # -------
 
 
-# --- Comparision Models ----
+# Table 2: Comparison across mayoral administrations (Models 1 and 4)
 table1b_stop_freq_comp <- etable(
-  models_overall$basic,
-  models_overall$with_change,
-  models_bloomberg$basic,
-  models_bloomberg$with_change,
-  models_blasio$basic,
-  models_blasio$with_change,
-  models_adams$basic,
-  models_adams$with_change,
+  models_overall$mod1_basic,
+  models_overall$mod5_crime,
+  models_bloomberg$mod1_basic,
+  models_bloomberg$mod5_crime,
+  models_blasio$mod1_basic,
+  models_blasio$mod5_crime,
+  models_adams$mod1_basic,
+  models_adams$mod5_crime,
   keep = c("%pct_black", "%pct_hisp", "%constant"),
   dict = c(
     pct_black = "% Black",
@@ -191,23 +179,22 @@ table1b_stop_freq_comp <- etable(
     constant = "Constant"
   ),
   headers = c(
-    "General\n Base Model", 
-    "General\n Model 5", 
-    "Bloomberg\n Base Model",
-    "Bloomberg\n Model 5",
-    "de Blasio\n Base Model",
-    "de Blasio\n Model 5",
-    "Adams\n Base Model",
-    "Adams\n Model 5"
+    "Overall\n(1)", 
+    "Overall\n(5)", 
+    "Bloomberg\n(1)",
+    "Bloomberg\n(5)",
+    "de Blasio\n(1)",
+    "de Blasio\n(5)",
+    "Adams\n(1)",
+    "Adams\n(5)"
   ),
-  title = "Table 1. OLS Regressions of Precinct Officer Allocations (logged) by Precinct Racial Composition and Social and Crime Conditions, Monthly Data (b, SE, p)",
+  title = "Table 2. OLS Regressions of Precinct Officer Allocations (logged) by Precinct Racial Composition and Social and Crime Conditions, Monthly Data (b, SE, p)",
   digits = 3,
   signifCode = c("***" = 0.01, "**" = 0.05, "*" = 0.1),
   se.below = TRUE,
   fitstat = ~ r2 + n,
   extralines = list(
-    "Year FE" = c("Yes", "No", "Yes", "No", "Yes", "No", "Yes", "No"),
-    "Month FE" = c("Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), 
+    "Year FE" = c("Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"),
     "Borough FE" = c("Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"),
     "Clustered SE" = c("Precinct", "Precinct", "Precinct", "Precinct", "Precinct", "Precinct", "Precinct", "Precinct")
   ),

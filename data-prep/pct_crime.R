@@ -122,7 +122,7 @@ pct_crime_misdemeanor <- pct_crime_misdemeanor %>%
     off_cat_broad = factor(
       off_cat_broad,
       levels = c(
-        "Murder", "Violent", "Weapons",
+        "Violent", "Weapons",
         "Property", "Drug", "Trespass",
         "QualityOfLife", "Other"
       )
