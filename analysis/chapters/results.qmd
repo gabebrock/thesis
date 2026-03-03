@@ -367,7 +367,7 @@ cat(etable(
     "pct_18_24"               = "% Population Age 18–24",
     "Constant"                = "Intercept"
   ),
-  title = "OLS Regression of Stop Rates per 10,000 Persons (Logged), Controlling for Crime Rates and Socioeconomic Factors, NYPD Precincts, 2009–2023",
+  title = "OLS Regression of Stop Rates per 10,000 Persons (Logged), Controlling for Crime Rates and Socioeconomic Factors, NYPD Precincts, 2009–2024",
   se.below = FALSE,
   float = TRUE,
   tex = TRUE,
@@ -384,7 +384,7 @@ Interestingly, this relationship does not consistently hold for Hispanic populat
 
 Moran's testing confirms that majority-Black, -Hispanic, and -White neighborhoods each cluster strongly ($\% \ \text{Black} \ (I = 0.597)$, $\% \ \text{Hispanic} \ (I = 0.727)$, and $\% \ \text{White} \ (I = 0.680)$, all $p < 0.001$), indicating high levels of residential segregation across the city. However, stop rates (logged) exhibit only weak spatial clustering $(I = 0.125, p = 0.026)$, and bivariate tests show no significant relationship between precinct-level stop rate and racial composition of neighboring precincts. This divergence suggests that minority threat might not generalize at the precinct-level and that other factors may be more influential in driving stop intensity. However, precinct-level analysis only reveals a portion of the racial dynamics at play, and the following section will address how race effects the outcomes of similarly-situated pedestrians.
 
-```{r Moran's testing for spatial concentration, include=FALSE}
+```{r Morans testing for spatial concentration, include=FALSE}
 
 library(spdep)
 
@@ -446,7 +446,9 @@ Given that I have established a substantive difference in frequency across perio
 
 ## Arrests and Summons
 
-To test for precinct effects of local crime and social conditions, I estimated the models first as OLS regressions without any fixed effects, and then I re-estimated the models including precinct and precinct-year fixed effects. I use the following OLS equation, with $Sanction$ as the dependent variable, indicating the stop resulted in a non-exclusive arrest or summons, and several controls for suspect characteristics, event (suspected crime) characteristics, local crime rates, and social conditions. All specifications include precinct, year, offense category (broad), and precinct-by-year fixed effects. Standard errors are clustered at the precinct level:
+To test for precinct effects of local crime and social conditions, I estimated the models first as OLS regressions without any fixed effects, and then I re-estimated the models including precinct and precinct-year fixed effects. I use the following OLS equation, with $Sanction$ as the dependent variable, indicating the stop resulted in a non-exclusive arrest or summons, and several controls for suspect characteristics, event (suspected crime) characteristics, local crime rates, and social conditions. All specifications include precinct, year, offense category (suspected crime)[^2], and precinct x year interaction fixed effects. Standard errors are clustered at the precinct level:
+
+[^2]: offense categories are based on the NYPD’s classification of the suspected crime, which is recorded on the UF-250. To create this variable, I mapped `PD_DESC`, the granular description of internal offense classification, to the seven NYS penal categories `Violent`, `Weapons`, `Property`, `Drug`, `Trespass`, `QualityOfLife`, and `Other`.
 
 \begin{align*}
 \mathrm{Sanction}_{it} =\;& 
@@ -463,11 +465,13 @@ To test for precinct effects of local crime and social conditions, I estimated t
 + \varepsilon_{it}
 \end{align*}
 
+Suspected crime was included as a fixed effect to account for the reality that there is some degree of variation associated with each suspected crime category. Suspected crime categories likely differ in baseline sanction rates (i.e., a pedestrian stopped under suspicion of a violent crime is more likely to be arrested than one stopped under suspicion of a quality-of-life offense), treating suspected offense as a fixed effect handles this non-parametrically and absorbs unmeasured covariance. Effectively, suspected crime category functions as an internal benchmark for the stop, allowing me to compare the likelihood of sanction for similarly-situated suspects across racial groups and ask *"Among stops for the same suspected crime, are Black and Hispanic individuals more likely to be sanctioned than white individuals?"*
+
 Where $Sanction$ is the probability of a stop resulting in $Summons$ or $Arrest$ for individual $i$ at time $t$, coefficients $\beta_1$ and $\beta_2$ estimate the conditional association between Black and Hispanic racial identity and the likelihood of receiving a sanction, holding other covariates constant. Controls for $Age$, $\beta_3$, and $Gender$, $\beta_4$ account for the over representation of young (18-29) men in the data. A vector of suspicion-related factors is included through $\boldsymbol{\gamma} \,\mathrm{SuspicionFactors}$, allowing me to account for the legally articulated grounds motivating the stop. The coefficient vector $\boldsymbol{\gamma}$ captures the marginal effect of each suspicion factor on the probability of sanction.
 
   To account for unobserved geographic and temporal heterogeneity, I also include multiple fixed effects. Borough- and Precinct-level fixed effects control for time-invariant differences across regions, year fixed effects capture citywide temporal shocks, and precinct-year fixed effects absorb localized time-specific variation. Suspected crime fixed effects further account for systematic differences across offense categories that may influence sanction decisions.
 
-  Table 4 estimates the likelihood of a sanction following a *Terry* stop across administrations, controlling for RS factors and incorporating multiple fixed effects. The dependent variable is an indicator for whether a stop resulted in a sanction. Models are estimated for the full sample and separately for the Bloomberg, de Blasio and Adams mayoral administrations.
+  Table 4 estimates the likelihood of a sanction following a *Terry* stop across administrations, controlling for RS factors and incorporating multiple fixed effects. The dependent variable is an indicator for whether a stop resulted in a sanction. Models are estimated for the full sample and separately for the Bloomberg, de Blasio and Adams mayoral administrations. It should be noted that the NYPD stop form was redesigned following Floyd, and several RS categories including furtive movements were not systematically recorded prior to 2014. Cross-administration comparisons of RS factor effects should therefore be interpreted with caution, as differences may partly reflect changes in recording practice rather than changes in officer behavior.
 
 ```{r, include=FALSE}
 
@@ -502,7 +506,8 @@ cat(etable(
     "De Blasio Admin.",
     "Adams Admin."
   ),
-  title = "OLS Regression for Sanctions, Controlling for RS Factors, NYPD Precincts, 2009–2023",
+  title = "OLS Regression for Sanctions, Controlling for RS Factors, NYPD Precincts, 2009–2024",
+  notes = "RS: Furtive was not recorded on NYPD stop forms prior to 2014 and is therefore omitted from the Bloomberg specification.",
   tex = TRUE,
   float = TRUE,
   view = FALSE
@@ -511,15 +516,57 @@ cat(etable(
 
 Table 5 disaggregates the summons results in Table 4, estimating the relationship between race/ethnicity and stop outcomes, arrest and summons, comparing this to the overall sanction rate across all stops (Models 1-3), and subset for the Bloomberg (Models 4-6), de Blasio (Models 7-9),  and Adams (Models 10-12) administrations. 
 
-  Across the full 2009--2023 period, racial disparities differ by outcome. The likelihood of Blacks being arrested as a result of a stop is not substantively different than Whites (reference group). However, they are significantly less likely to receive a summons (${\beta}\approx -0.015$, p < 0.001) and less likely to receive a sanction (${\beta}\approx -0.016$, p < 0.001) relative to Whites, a disparity that is magnified under Bloomberg and Adams. Hispanic individuals show no statistically significant differences in arrest, summons, or sanction outcomes in the pooled models.
+```{r, echo=FALSE, results="asis"}
+cat("\\clearpage")
+cat("\\begin{landscape}")
 
-During the Bloomberg years, Black individuals are significantly less likely to receive a summons (${\beta}\approx -0.017$, p<0.001) and a sanction (${\beta}\approx -0.018$, p<0.001), with no significant difference in arrests. Substantively, this pattern suggests that during the height of stop activity, racial disparities appear primarily in lower-level enforcement outcomes rather than in arrests. This pattern shifts wildly under de Blasio. Of the stops conducted between 2014 and 2021, there are no statistically significant racial differences in arrests or sanctions for Black individuals. For Hispanic individuals, however, there is a modest but statistically significant increase in the likelihood of arrest (${\beta}\approx 0.021$, p<0.05) and sanction (${\beta}\approx 0.021$, p<0.05), while summons outcomes remain statistically indistinguishable from the reference group. 
+cat(etable(
+    model1b_all[[1]], model1b_all[[2]], model1b_all[[3]],
+    model1b_bloomberg[[1]], model1b_bloomberg[[2]], model1b_bloomberg[[3]],
+    model1b_deblasio[[1]], model1b_deblasio[[2]], model1b_deblasio[[3]],
+    model1b_adams[[1]], model1b_adams[[2]], model1b_adams[[3]],
+    keep = c("Black", "Hisp"),
+    dict = c(Black = "Black", Hisp = "Hispanic",
+             arrest = "Arrest", summons = "Summons", sanction = "Sanction"),
+    headers = list(
+        "^" = list(              # place above dep var row
+            "All Stops"  = 3,
+            "Bloomberg"  = 3,
+            "de Blasio"  = 3,
+            "Adams"      = 3
+        )
+    ),
+    extralines = list(
+        "_Administration" = c(
+            "All","All","All",
+            "Bloomberg","Bloomberg","Bloomberg",
+            "de Blasio","de Blasio","de Blasio",
+            "Adams","Adams","Adams"
+        )
+    ),
+    title = "OLS Regression of Arrest, Summons, and Sanction Outcomes by Race, NYPD Stops, 2009–2024",
+    notes = "RS: Furtive was not recorded on NYPD stop forms prior to 2014 and is therefore omitted from Bloomberg specifications. All models include precinct, year, precinct-by-year, and offense category fixed effects. Standard errors clustered at the precinct level.",
+    fitstat = ~ n + r2,
+    digits = 3,
+    signif.code = c("***"=0.001, "**"=0.01, "*"=0.05, "."=0.1),
+    tex = TRUE,
+    float = TRUE,
+    view = T
+))
+
+cat("\\end{landscape}")
+cat("\\clearpage")
+```
+
+  Across the full 2009-2024 period, racial disparities differ by outcome. The likelihood of Blacks being arrested as a result of a stop is not substantively different than Whites (reference group). However, they are significantly less likely to receive a summons (${\beta}\approx -0.015$, p < 0.001) and less likely to receive a sanction (${\beta}\approx -0.016$, p < 0.001) relative to Whites, a disparity that is magnified under Bloomberg and Adams. Hispanic individuals show no statistically significant differences in arrest, summons, or sanction outcomes in the pooled models.
+
+During the Bloomberg years, Black individuals are significantly less likely to receive a summons (${\beta}\approx -0.017$, p<0.001) and a sanction (${\beta}\approx -0.018$, p<0.001), with no significant difference in arrests. Substantively, this pattern suggests that during the height of stop activity, racial disparities appear primarily in lower-level enforcement outcomes rather than in arrests. This pattern shifts substantially under de Blasio. Of the stops conducted between 2014 and 2021, there are no statistically significant racial differences in arrests or sanctions for Black individuals. For Hispanic individuals, however, there is a modest but statistically significant increase in the likelihood of arrest (${\beta}\approx 0.021$, p<0.05) and sanction (${\beta}\approx 0.021$, p<0.05), while summons outcomes remain statistically indistinguishable from the reference group. 
 
   However, the Adams administration exhibits the most pronounced reversal in racial disparities. Black individuals are significantly more likely to receive an arrest (${\beta}\approx 0.055$, p<0.001) and a sanction(${\beta}\approx 0.057$, p<0.001), with no significant difference in summons issuance. Hispanic individuals are also significantly more likely to receive arrests (${\beta}\approx 0.043$, p<0.001) and sanctions (${\beta}\approx 0.048$, p<0.001). 
 
-  Taken together, this suggests that there has not been a durable reduction in disparate post-stop outcomes across political administrations. Whatever effect on sanction post-*Floyd* reforms had on de Blasio era stops, disappeared under Adams, suggesting that there was some substantive change in policing that led to outcome disparity widening dramatically, with Black and Hispanic individuals significantly more likely to experience arrest and sanction outcomes. 
+  Taken together, this suggests that there has not been a durable reduction in disparate post-stop outcomes across political administrations. Whatever effect post-8 reforms had on sanction outcomes under de Blasio disappeared under Adams, suggesting that there was some substantive change in policing that led to outcome disparity widening dramatically, with Black and Hispanic individuals significantly more likely to experience arrest and sanction outcomes. 
 
-  Given the higher stop rates for Blacks annually, the fact that they were less likely to receive a summons after being stops, signaling weaker justification for the stop, suggests bias in the original decision to stop. This is characterized by *Floyd* as “indirect racial profiling” (*Floyd* v. City of New York, No. 13-3088 (2d Cir. 2014), n.d., 540, 562) and was the phenomenon that reforms instituted under de Blasio were meant to remedy. My findings partially validate the results of Fagan (2022) that the negative effects for Black suspects suggest that police are conducting many stops of Black pedestrians that are unproductive at stopping crime, proxied by the arrest and summons. This may suggest that the suspicion motivating many of these stops may be invalid. As such, understanding how similarly-situated Black and White pedestrians are sanctioned based on suspicion is warranted.
+  Given the higher stop rates for Blacks annually, the fact that they were less likely to receive a summons after being stopped, signaling weaker justification for the stop, suggests bias in the original decision to stop. This is characterized by *Floyd* as “indirect racial profiling” (*Floyd* v. City of New York, No. 13-3088 (2d Cir. 2014), n.d., 540, 562) and was the phenomenon that reforms instituted under de Blasio were meant to remedy. My findings partially validate the results of Fagan (2022) that the negative effects for Black suspects suggest that police are conducting many stops of Black pedestrians that are unproductive at stopping crime, proxied by the arrest and summons. This suggests that the suspicion motivating many of these stops was frequently invalid. As such, understanding how similarly-situated Black and White pedestrians are sanctioned based on suspicion is warranted.
   
 ## Sanctions and Reasonable Suspicion
 
