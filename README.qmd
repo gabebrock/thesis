@@ -1,0 +1,60 @@
+---
+title: "README"
+format: html
+---
+
+# Data Prep
+
+## GIS Data
+
+1. "data-prep/census-gis" `prep-gis.R`
+- NYC Boro sf
+- NYPD Precinct sf
+- NYC US Census Tract sf
+- NYC Neighborhood Tabulation Area sf
+
+- see `nycMAP_stops`
+
+## Census/BLS Data
+
+1. Get socioeconomic data "data-prep/census-gis" `get-census.R`
+  - "data-prep/census-gis" `get-census.R`
+    - Census data using tidycensus() at the census tract level for 2009-2024, including:
+      - Total population
+      - Population Black/White/Hispanic (and %)
+      - % Foriegn-born
+      - % Aged 18-24
+      - % Public housing
+      - Median income
+      - Unemployment rate
+  - "data-prep/census-gis" `get-bls.R`
+    - BLS data, using blscrapeR() including:
+      - Median income
+      - Unemployment rate
+2. Tally census tract-level data
+3. Tally precinct-level data
+
+
+## SQF Data
+1. Read SQF data "data-prep/read_stops"
+  1. Read 2009-2016 (legacy) data: `read_sqf-csv.R` 
+  2. Read 2009-2016 (historic to-date) data:`read_sqf-xlsx.R`
+
+2. Create complete data set of stops "data-prep/prep_stops"
+  1. Bind SQF data: `bind_sqf.R`
+    - binds legacy and historic data into one data frame `sqf_all` stored at "data/data-final/sqf_all.rds"
+    - produces year-race stop frequency table for 2009-2024 (`sqf_race_year`)
+  
+3. Normalize Variables "data-prep/prep_stops"
+  1. Major Analysis Variables `prep_vars.R`
+    - recodes `sqf_all$SUSPECT_SEX` as binary variable 1/0 Male/Female
+    - sentiment analysis of variable `sqf_all$DEMEANOR_OF_PERSON_STOPPED`
+      - produces new variables in sqf_all called `demeanor_score` and `demeanor_valence` (pos/neg/neut)
+    - recodes RS flags as 0/1 binary instead of NA/1, see: `RS_flag_means`
+    - recodes force flags as 0/1 binary instead of NA/1, see: `force_flag_means`
+  2. Crime Descriptions `crime_desc.R`
+    - normalizes to new set of variables for felony, misdemeanor, and violation
+    - categorizes to 8 broad crime categories (e.g. "VIOLENT", "PROPERTY", "DRUG", etc.)
+
+## Crime Data
+Prepare crime data at the census tract- and precinct-level for 2009-2024
