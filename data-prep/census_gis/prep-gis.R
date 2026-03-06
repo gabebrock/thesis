@@ -41,37 +41,6 @@ nta_sf <- read_arcgis_sf(
 saveRDS(nta_sf, file = "data/data-final/census-gis/nta_sf.rds")
 
 
-# --- convert sqf_all stop coordinates to sf (non-destructive) ----
-#' Keep sqf_all intact; create a separate sf object for spatial operations.
-sqf_sf <- sqf_all %>%
-  tidyr::drop_na(STOP_LOCATION_X, STOP_LOCATION_Y) %>%
-  sf::st_as_sf(coords = c("STOP_LOCATION_X", "STOP_LOCATION_Y"), crs = 2263) %>%
-  sf::st_transform(crs = 4326)
-
-
-# --- dot map: stops by race ----
-nycMAP_stops <- ggplot(nyc_sf) +
-  geom_sf(fill = "white", color = "black", linewidth = 0.3) +
-  geom_sf(
-    data = sqf_sf,
-    aes(color = SUSPECT_RACE_DESCRIPTION),
-    size = 0.25, alpha = 0.4
-  ) +
-  coord_sf(xlim = c(-74.3, -73.65), ylim = c(40.48, 40.95)) +
-  scale_color_viridis_d(option = "viridis") +
-  labs(color = "Suspect Race or Ethnicity") +
-  theme_void() +
-  theme(
-    legend.key       = element_rect(fill = NA, color = NA),
-    legend.key.size  = unit(1.0, "cm"),
-    legend.title     = element_text(size = 8),
-    legend.text      = element_text(size = 7),
-    legend.spacing.y = unit(0.2, "cm"),
-    legend.box.spacing = unit(0.3, "cm")
-  ) +
-  guides(color = guide_legend(override.aes = list(shape = 15, size = 4)))
-
-
 # --- base precinct map ----
 nypdMAP <- ggplot(nypd_sf) +
   geom_sf(fill = "white", color = "black", linewidth = 0.3) +
