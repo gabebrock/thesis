@@ -18,13 +18,15 @@ sqf_all <- sqf_all %>%
 
 # --- clean STOP_FRISK_TIME ----
 #' xlsx files store time as a phantom datetime "1899-12-31 HH:MM:SS".
-#' Extract HH:MM as a plain character string; leave legacy values as-is.
+#' Legacy data stores time as HHMM integer strings (e.g. "800", "58").
+#' Normalize all values to "HH:MM".
 sqf_all <- sqf_all %>%
   dplyr::mutate(
     STOP_FRISK_TIME = dplyr::if_else(
       stringr::str_starts(STOP_FRISK_TIME, "1899"),
-      format(as.POSIXct(STOP_FRISK_TIME), "%H:%M"),
-      STOP_FRISK_TIME
+      stringr::str_sub(STOP_FRISK_TIME, 12, 16),
+      stringr::str_pad(STOP_FRISK_TIME, 4, pad = "0") |>
+        stringr::str_replace("(\\d{2})(\\d{2})", "\\1:\\2")
     )
   )
 
@@ -161,3 +163,4 @@ force_flag_means <- sqf_all %>%
   tidyr::pivot_longer(-YEAR2, names_to = "flag", values_to = "mean") %>%
   tidyr::pivot_wider(names_from = YEAR2, values_from = mean) %>%
   dplyr::arrange(flag)
+
