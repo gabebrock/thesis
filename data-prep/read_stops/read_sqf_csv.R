@@ -3,11 +3,9 @@
 # --- read normalized legacy sqf data ----
 #' this is data recorded before the standardized format in 2017
 #' the crimsusp field was normalized by /data-prep/normalize_crimesusp.R
-sqf_legacy <- readr::read_csv("data/sqf-combined-2009-2016-normalized.csv", 
-                       col_types = cols(datestop = col_character(), 
-                                        repcmd = col_double(), revcmd = col_double(), 
-                                        dob = col_character(), xcoord = col_double(), 
-                                                               ycoord = col_double()))
+sqf_legacy <- readr::read_csv("data/sqf-combined-2009-2016-normalized.csv")
+
+sqf_legacy
 
 # --- normalize dates in legacy data ----
 sqf_legacy <- sqf_legacy %>%

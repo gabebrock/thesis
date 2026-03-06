@@ -33,12 +33,12 @@ sqf_hist <- sqf_files_xlsx %>%
 
 
 # --- align columns to expected schema ----
-#' Add any columns present in expected_sqf_data but missing from the xlsx
+#' Add any columns present in expected_sqf_fields but missing from the xlsx
 #' files (e.g. fields not collected in certain years) and fill with NA.
 #' Then subset to only the expected columns to drop any extraneous fields.
-missing_cols <- setdiff(expected_sqf_data, names(sqf_hist))
+missing_cols <- setdiff(expected_sqf_fields, names(sqf_hist))
 sqf_hist[missing_cols] <- NA
-sqf_hist <- sqf_hist[, expected_sqf_data]
+sqf_hist <- sqf_hist[, expected_sqf_fields]
 
 
 # --- normalize variable types ----
@@ -64,11 +64,18 @@ sqf_hist <- sqf_hist %>%
     SUPERVISING_OFFICER_COMMAND_CODE = as.character(SUPERVISING_OFFICER_COMMAND_CODE),
     # normalize race labels to a consistent set across years
     SUSPECT_RACE_DESCRIPTION = dplyr::case_when(
-      SUSPECT_RACE_DESCRIPTION %in% c("BLACK HISPANIC", "WHITE HISPANIC")        ~ "HISPANIC",
+      SUSPECT_RACE_DESCRIPTION == "BLACK HISPANIC"                               ~ "HISPANIC-BLACK",
+      SUSPECT_RACE_DESCRIPTION == "WHITE HISPANIC"                               ~ "HISPANIC-WHITE",
       SUSPECT_RACE_DESCRIPTION %in% c("ASIAN/PAC.ISL", "ASIAN / PACIFIC ISLANDER") ~ "ASIAN / PACIFIC ISLANDER",
       SUSPECT_RACE_DESCRIPTION %in% c("AMER IND", "AMERICAN INDIAN/ALASKAN N")   ~ "AMERICAN INDIAN/ALASKAN NATIVE",
       SUSPECT_RACE_DESCRIPTION %in% c("MIDDLE EASTERN/SOUTHWEST")                ~ "MIDDLE EASTERN/SOUTHWEST ASIAN",
-      TRUE ~ SUSPECT_RACE_DESCRIPTION
+      SUSPECT_RACE_DESCRIPTION %in% c(
+        "BLACK", "WHITE", "HISPANIC-BLACK", "HISPANIC-WHITE",
+        "ASIAN / PACIFIC ISLANDER", "AMERICAN INDIAN/ALASKAN NATIVE",
+        "MIDDLE EASTERN/SOUTHWEST ASIAN"
+      ) ~ SUSPECT_RACE_DESCRIPTION,
+      is.na(SUSPECT_RACE_DESCRIPTION) ~ "OTHER",
+      TRUE ~ "OTHER"
     )
   )
 
