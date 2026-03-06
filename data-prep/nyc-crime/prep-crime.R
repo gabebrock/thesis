@@ -204,11 +204,9 @@ add_race_props <- function(d) {
 
 # --- file 1: 2006–2019 ----
 d1 <- arrow::open_dataset("data/nypd-crime/NYPD_Complaint_Data_Historic.csv", format = "csv") |>
-  dplyr::select(CMPLNT_FR_DT, ADDR_PCT_CD, BORO_NM,
+  dplyr::select(CMPLNT_FR_DT, CMPLNT_TO_DT, PD_DESC, ADDR_PCT_CD, BORO_NM,
                 LAW_CAT_CD, SUSP_RACE, Latitude, Longitude) |>
   dplyr::collect()
-
-d1 <- dt
 
 d1 <- transform_chunk(d1)
 pct1   <- agg_pct(d1)
@@ -326,7 +324,6 @@ race_pct_month <- sqf_all %>%
 # --- build precinct monthly panel ----
 pct_month_full <- crime_pct_month %>%
   dplyr::left_join(demo_pct_month,   by = c("pct", "year", "month")) %>%
-  dplyr::left_join(nyc_unemp_month,  by = c("year", "month", "boro")) %>%
   dplyr::left_join(pct_areas,        by = c("pct" = "Precinct")) %>%
   dplyr::left_join(race_pct_month,   by = c("pct", "year", "month")) %>%
   dplyr::mutate(
@@ -349,14 +346,13 @@ pct_month_lagged <- pct_month_full %>%
   dplyr::mutate(
     lag_violent_rate    = dplyr::lag(violent_rate,    1),
     lag_nonviolent_rate = dplyr::lag(nonviolent_rate, 1),
-    lag_unemp           = dplyr::lag(unemp_rate,      1)
   ) %>%
   dplyr::ungroup() %>%
   dplyr::filter(!is.na(lag_violent_rate))  # drop first month per precinct
 
 
 # --- save ----
-saveRDS(crime_pct_month,   file = "data/data-final/crime_pct_month.rds")
-saveRDS(crime_tract_month, file = "data/data-final/crime_tract_month.rds")
-saveRDS(crime_points,      file = "data/data-final/crime_points.rds")
+saveRDS(crime_pct_month,   file = "data/data-final/nyc-crime/crime_pct_month.rds")
+saveRDS(crime_tract_month, file = "data/data-final/nyc-crime/crime_tract_month.rds")
+saveRDS(crime_points,      file = "data/data-final/nyc-crime/crime_points.rds")
 saveRDS(pct_month_lagged,  file = "data/data-final/pct_month_lagged.rds")
