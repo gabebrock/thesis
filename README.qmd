@@ -17,18 +17,14 @@ format: html
 
 ## Census/BLS Data
 
-1. Get socioeconomic data "data-prep/census-gis" `get-census.R`
+1. Get socioeconomic data *"data-prep/census-gis"*
   - "data-prep/census-gis" `get-census.R`
     - Census data using tidycensus() at the census tract level for 2009-2024, including:
       - Total population
       - Population Black/White/Hispanic (and %)
-      - % Foriegn-born
+      - % Foreign-born
       - % Aged 18-24
       - % Public housing
-      - Median income
-      - Unemployment rate
-  - "data-prep/census-gis" `get-bls.R`
-    - BLS data, using blscrapeR() including:
       - Median income
       - Unemployment rate
 2. Tally census tract-level data
@@ -36,7 +32,7 @@ format: html
 
 
 ## SQF Data
-1. Read SQF data "data-prep/read_stops"
+1. Read SQF data *"data-prep/read_stops"*
   1. Read 2009-2016 (legacy) data: `read_sqf-csv.R` 
   2. Read 2009-2016 (historic to-date) data:`read_sqf-xlsx.R`
 
@@ -45,7 +41,7 @@ format: html
     - binds legacy and historic data into one data frame `sqf_all` stored at "data/data-final/sqf_all.rds"
     - produces year-race stop frequency table for 2009-2024 (`sqf_race_year`)
   
-3. Normalize Variables "data-prep/prep_stops"
+3. Normalize Variables *"data-prep/prep_stops"*
   1. Major Analysis Variables `prep_vars.R`
     - recodes `sqf_all$SUSPECT_SEX` as binary variable 1/0 Male/Female
     - sentiment analysis of variable `sqf_all$DEMEANOR_OF_PERSON_STOPPED`
@@ -57,4 +53,14 @@ format: html
     - categorizes to 8 broad crime categories (e.g. "VIOLENT", "PROPERTY", "DRUG", etc.)
 
 ## Crime Data
-Prepare crime data at the census tract- and precinct-level for 2009-2024
+Prepare crime data at the census tract- and precinct-level for 2009-2024 "data-prep/nyc-crime"
+1. Read crime data: `read-crime.R`
+
+# Analysis
+
+1. Stop Frequency (precinct-level) "analysis/final-analysis/1-stop_freq.R"
+2. Binned Stop Frequency (precinct-level) "analysis/final-analysis/2-bin_stop_freq.R"
+3. Arrests and Summons (stop-level) "analysis/final-analysis/3-arrest_summons.R"
+
+
+
