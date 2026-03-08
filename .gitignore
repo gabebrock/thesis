@@ -4,6 +4,7 @@
 .RData
 .Ruserdata
 .RDataTmp*
+*.DS_Store
 
 # Quarto outputs
 _site/
