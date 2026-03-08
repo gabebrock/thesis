@@ -1,4 +1,9 @@
 
+# --- check if cached RDA file exists; load and skip if so ----
+if (file.exists("data/data-final/nypd-stop/sqf_legacy.rda")) {
+  message("sqf_legacy.rda found. loading from file")
+  load("data/data-final/nypd-stop/sqf_legacy.rda")
+} else { # otherwise run the code (this takes forever)
 
 # --- read normalized legacy sqf data ----
 #' this is data recorded before the standardized format in 2017
@@ -233,3 +238,5 @@ sqf_legacy <- sqf_legacy_check
 
 # read sqf_legacy to rda file
 save(sqf_legacy, file = "data/data-final/nypd-stop/sqf_legacy.rda")
+
+} # end if/else cache check

@@ -1,3 +1,9 @@
+# --- check if cached RDA file exists; load and skip if so ----
+if (file.exists("data/data-final/nypd-stop/sqf_hist.rda")) {
+  message("sqf_hist.rda found — loading from cache.")
+  load("data/data-final/nypd-stop/sqf_hist.rda")
+} else {
+
 # --- read sqf xlsx files (2017–2024) ----
 #' The post-2017 SQF data uses a standardized Excel format with consistent
 #' column names, unlike the legacy CSV files which required renaming.
@@ -81,3 +87,5 @@ sqf_hist <- sqf_hist %>%
 
 #' save 2016 to 2024 stop data to df
 save(sqf_hist, file = "data/data-final/nypd-stop/sqf_hist.rda")
+
+} # end if/else cache check
