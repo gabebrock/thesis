@@ -4,6 +4,24 @@ library(sf)
 options(tigris_use_cache = TRUE)
 
 
+# --- check if cached RDS files exist; load and skip if so ----
+.census_rds_files <- c(
+  "data/data-final/census-gis/demo_trct.rds",
+  "data/data-final/census-gis/demo_trct_tally.rds",
+  "data/data-final/census-gis/demo_pct.rds",
+  "data/data-final/census-gis/demo_pct_tally.rds"
+)
+
+# If .rds files exist in directory, just load them to environment
+if (all(file.exists(.census_rds_files))) {
+  message("Census RDS files found. loading from cache.")
+  demo_trct       <- readRDS("data/data-final/census-gis/demo_trct.rds")
+  demo_trct_tally <- readRDS("data/data-final/census-gis/demo_trct_tally.rds")
+  demo_pct        <- readRDS("data/data-final/census-gis/demo_pct.rds")
+  demo_pct_tally  <- readRDS("data/data-final/census-gis/demo_pct_tally.rds")
+  .setup_complete_census <- TRUE
+} else { # other wise run the tidycensus code
+
 # --- precinct-level 2020 decennial census (from CSV) ----
 #' Pre-downloaded file; use for static 2020 demographic baseline at precinct level.
 nyc_census2020_pct <- readr::read_csv("data/nyc-census/nyc_precinct_2020pop.csv") %>%
@@ -106,7 +124,7 @@ demo_trct <- purrr::map_dfr(years, get_pop)
 demo_trct_tally <- demo_trct %>%
   sf::st_drop_geometry() %>%
   dplyr::group_by(year) %>%
-  dplyr::summarise(
+  dplyr::summarize(
     n_tracts         = dplyr::n(),
     total_pop        = sum(total_pop,        na.rm = TRUE),
     black_pop        = sum(black_pop,        na.rm = TRUE),
@@ -141,7 +159,7 @@ demo_trct_pct <- sf::st_join(
 demo_pct <- demo_trct_pct %>%
   sf::st_drop_geometry() %>%
   dplyr::group_by(Precinct, year) %>%
-  dplyr::summarise(
+  dplyr::summarize(
     total_pop        = sum(total_pop,        na.rm = TRUE),
     black_pop        = sum(black_pop,        na.rm = TRUE),
     white_pop        = sum(white_pop,        na.rm = TRUE),
@@ -165,7 +183,7 @@ demo_pct <- demo_trct_pct %>%
 # --- 3. tally precinct-level data ----
 demo_pct_tally <- demo_pct %>%
   dplyr::group_by(year) %>%
-  dplyr::summarise(
+  dplyr::summarize(
     n_precincts      = dplyr::n(),
     total_pop        = sum(total_pop,        na.rm = TRUE),
     black_pop        = sum(black_pop,        na.rm = TRUE),
@@ -200,3 +218,5 @@ saveRDS(demo_pct,        file = "data/data-final/census-gis/demo_pct.rds")
 saveRDS(demo_pct_tally,  file = "data/data-final/census-gis/demo_pct_tally.rds")
 
 .setup_complete_census <- TRUE
+
+} # end if/else cache check

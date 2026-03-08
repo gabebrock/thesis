@@ -1,3 +1,4 @@
+library(tidycensus)
 
 # --- helper: download ArcGIS FeatureServer layer to sf object ----
 read_arcgis_sf <- function(url) {

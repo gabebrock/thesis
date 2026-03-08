@@ -128,7 +128,7 @@ sqf_all <- sqf_all %>%
 # --- mean of each RS flag by year ----
 RS_flag_means <- sqf_all %>%
   dplyr::group_by(YEAR2) %>%
-  dplyr::summarise(dplyr::across(dplyr::all_of(RS_flags), mean), .groups = "drop") %>%
+  dplyr::summarize(dplyr::across(dplyr::all_of(RS_flags), mean), .groups = "drop") %>%
   tidyr::pivot_longer(-YEAR2, names_to = "flag", values_to = "mean") %>%
   tidyr::pivot_wider(names_from = YEAR2, values_from = mean) %>%
   dplyr::arrange(flag)
@@ -159,7 +159,7 @@ sqf_all <- sqf_all %>%
 # --- mean of each RS flag by year ----
 force_flag_means <- sqf_all %>%
   dplyr::group_by(YEAR2) %>%
-  dplyr::summarise(dplyr::across(dplyr::all_of(force_flags), mean), .groups = "drop") %>%
+  dplyr::summarize(dplyr::across(dplyr::all_of(force_flags), mean), .groups = "drop") %>%
   tidyr::pivot_longer(-YEAR2, names_to = "flag", values_to = "mean") %>%
   tidyr::pivot_wider(names_from = YEAR2, values_from = mean) %>%
   dplyr::arrange(flag)

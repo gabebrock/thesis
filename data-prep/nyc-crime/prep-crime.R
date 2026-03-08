@@ -132,7 +132,7 @@ agg_pct <- function(d) {
   d %>%
     dplyr::filter(pct >= 1, pct <= 123) %>%
     dplyr::group_by(pct, boro, year, month) %>%
-    dplyr::summarise(
+    dplyr::summarize(
       n                   = dplyr::n(),
       felony              = sum(felony,                                 na.rm = TRUE),
       misdemeanor         = sum(misdemeanor,                            na.rm = TRUE),
@@ -172,7 +172,7 @@ agg_tract <- function(d) {
     sf::st_drop_geometry() %>%
     dplyr::filter(!is.na(GEOID)) %>%
     dplyr::group_by(GEOID, year, month) %>%
-    dplyr::summarise(
+    dplyr::summarize(
       n                   = dplyr::n(),
       felony              = sum(felony,                                 na.rm = TRUE),
       misdemeanor         = sum(misdemeanor,                            na.rm = TRUE),
@@ -201,6 +201,22 @@ add_race_props <- function(d) {
   )
 }
 
+
+# --- check if cached RDS files exist; load and skip if so ----
+.crime_rds_files <- c(
+  "data/data-final/nyc-crime/crime_pct_month.rds",
+  "data/data-final/nyc-crime/crime_tract_month.rds",
+  "data/data-final/nyc-crime/crime_points.rds",
+  "data/data-final/pct_month_lagged.rds"
+)
+
+if (all(file.exists(.crime_rds_files))) {
+  message("Crime RDS files found — loading from cache.")
+  crime_pct_month   <- readRDS("data/data-final/nyc-crime/crime_pct_month.rds")
+  crime_tract_month <- readRDS("data/data-final/nyc-crime/crime_tract_month.rds")
+  crime_points      <- readRDS("data/data-final/nyc-crime/crime_points.rds")
+  pct_month_lagged  <- readRDS("data/data-final/pct_month_lagged.rds")
+} else {
 
 # --- file 1: 2006–2019 ----
 d1 <- arrow::open_dataset("data/nypd-crime/NYPD_Complaint_Data_Historic.csv", format = "csv") |>
@@ -269,7 +285,7 @@ shootings_pct_month <- readr::read_csv("data/nypd-crime/NYPD_Shootings_Data__His
     pct   = as.numeric(PRECINCT)
   ) %>%
   dplyr::group_by(pct, year, month) %>%
-  dplyr::summarise(shootings = dplyr::n(), .groups = "drop")
+  dplyr::summarize(shootings = dplyr::n(), .groups = "drop")
 
 crime_pct_month <- crime_pct_month %>%
   dplyr::left_join(shootings_pct_month, by = c("pct", "year", "month"))
@@ -307,7 +323,7 @@ race_pct_month <- sqf_all %>%
     )
   ) %>%
   dplyr::group_by(STOP_LOCATION_PRECINCT, YEAR2, MONTH2) %>%
-  dplyr::summarise(
+  dplyr::summarize(
     stops_black = sum(race == "black", na.rm = TRUE),
     stops_hisp  = sum(race == "hisp",  na.rm = TRUE),
     stops_white = sum(race == "white", na.rm = TRUE),
@@ -356,3 +372,5 @@ saveRDS(crime_pct_month,   file = "data/data-final/nyc-crime/crime_pct_month.rds
 saveRDS(crime_tract_month, file = "data/data-final/nyc-crime/crime_tract_month.rds")
 saveRDS(crime_points,      file = "data/data-final/nyc-crime/crime_points.rds")
 saveRDS(pct_month_lagged,  file = "data/data-final/pct_month_lagged.rds")
+
+} # end if/else cache check
