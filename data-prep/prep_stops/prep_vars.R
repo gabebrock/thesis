@@ -4,8 +4,8 @@ glimpse(sqf_all)
 # --- merge STOP_ID into STOP_FRISK_ID ----
 #' Modern data uses STOP_FRISK_ID; legacy uses STOP_ID. Coalesce into one field.
 sqf_all <- sqf_all %>%
-  dplyr::mutate(STOP_FRISK_ID = dplyr::coalesce(STOP_FRISK_ID, STOP_ID)) %>%
-  dplyr::select(-STOP_ID)
+  dplyr::mutate(STOP_FRISK_ID = dplyr::coalesce(STOP_FRISK_ID, as.double(STOP_ID_ANONY))) %>%
+  dplyr::select(-STOP_ID_ANONY)
 
 
 # --- fix MONTH2 / DAY2 (NA for modern xlsx rows) ----
@@ -69,8 +69,13 @@ sqf_all <- sqf_all %>%
     )
   )
 
-source("~/Projects/thesis/data-prep/prep_stops/demeanor_analysis.R", echo = FALSE)
-
+if (all(c("demeanor_score", "demeanor_n_words", "demeanor_valence") %in% names(sqf_all))) {
+  message("demeanor columns present in sqf_all, skipping demeanor_analysis.R")                                                            
+  return(invisible(NULL))                                           
+} else {
+  message("demeanor columns not found in sqf_all, running demeanor_analysis.R")
+  source("~/Projects/thesis/data-prep/prep_stops/demeanor_analysis.R", echo = FALSE)
+} 
 
 #
 key_vars_quant <- c(
