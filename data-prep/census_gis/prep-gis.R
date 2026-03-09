@@ -33,7 +33,7 @@ saveRDS(nypd_sf, file = "data/data-final/census-gis/nypd_sf.rds")
 tracts_sf <- read_arcgis_sf(
   "https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Census_Tracts_for_2020_US_Census/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson"
 )
-saveRDS(tracts_sf, file = "data/data-final/census-gis/ttracts_sf.rds")
+saveRDS(tracts_sf, file = "data/data-final/census-gis/tracts_sf.rds")
 
 
 # --- NYC Neighborhood Tabulation Areas (2020) ----
