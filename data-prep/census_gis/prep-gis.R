@@ -1,3 +1,4 @@
+library(tidyverse)
 library(tidycensus)
 
 # --- helper: download ArcGIS FeatureServer layer to sf object ----
