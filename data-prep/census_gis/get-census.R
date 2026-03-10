@@ -49,7 +49,7 @@ nyc_census2020_pct <- readr::read_csv("data/nyc-census/nyc_precinct_2020pop.csv"
     hisp_prop  = round(hispanic_or_latino / total_population, 2)
   ) %>%
   # attach precinct geometries
-  dplyr::left_join(nypd_sf, by = c("precinct" = "Precinct")) %>%
+  dplyr::left_join(nypd_sf, by = c("precinct" = "precinct")) %>%
   sf::st_as_sf()
 
 
@@ -149,7 +149,7 @@ demo_trct_tally <- demo_trct %>%
 demo_trct_pct <- sf::st_join(
   demo_trct %>% sf::st_make_valid(),
   nypd_sf   %>% sf::st_transform(sf::st_crs(demo_trct)) %>%
-                sf::st_make_valid() %>% dplyr::select(Precinct),
+                sf::st_make_valid() %>% dplyr::select(precinct),
   join       = sf::st_intersects,
   largest    = TRUE
 )
@@ -158,7 +158,7 @@ demo_trct_pct <- sf::st_join(
 # --- aggregate to precinct × year ----
 demo_pct <- demo_trct_pct %>%
   sf::st_drop_geometry() %>%
-  dplyr::group_by(Precinct, year) %>%
+  dplyr::group_by(precinct, year) %>%
   dplyr::summarize(
     total_pop        = sum(total_pop,        na.rm = TRUE),
     black_pop        = sum(black_pop,        na.rm = TRUE),
@@ -177,7 +177,7 @@ demo_pct <- demo_trct_pct %>%
     pct_hisp  = hisp_pop      / total_pop,
     pct_18_24 = age_18_24_pop / total_pop
   ) %>%
-  dplyr::rename(pct = Precinct)
+  dplyr::rename(pct = precinct)
 
 
 # --- 3. tally precinct-level data ----

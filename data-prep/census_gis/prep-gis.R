@@ -21,7 +21,7 @@ saveRDS(nyc_sf, file = "data/data-final/census-gis/nyc_sf.rds")
 # --- NYPD precinct boundaries (clipped to shoreline, May 2025) ----
 # https://www.nyc.gov/content/planning/pages/resources/datasets/police-precincts
 nypd_sf <- read_arcgis_sf(
-  "https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Police_Precincts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson"
+  "https://services1.arcgis.com/oOUgp466Coyjcu6V/arcgis/rest/services/NYPD_Precincts/FeatureServer/0/query?outFields=*&where=1%3D1&f=geojson"
 )
 # Precinct as integer to match STOP_LOCATION_PRECINCT in sqf_all
 nypd_sf <- nypd_sf %>%
