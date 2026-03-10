@@ -1,9 +1,6 @@
 library(fixest)
 library(dplyr)
 
-# --- load data ----
-sqf_all <- readRDS("data/data-final/nypd-stop/sqf_all.rds")
-
 # --- RS flag and force flag definitions ----
 RS_flags <- c(
   "BACKROUND_CIRCUMSTANCES_VIOLENT_CRIME_FLAG",
@@ -65,21 +62,67 @@ stops_indiv <- sqf_all %>%
     !is.na(pct), !is.na(year), !is.na(age), !is.na(crime)
   )
 
+stops_indiv <- stops_indiv %>%                                                   
+  dplyr::mutate(                                                                 
+    # 1. Fits Description                                                      
+    RS_fits_desc   = pmax(SUSPECTS_ACTIONS_DECRIPTION_FLAG,
+                          BACKROUND_CIRCUMSTANCES_VIOLENT_CRIME_SUSPECT_FLAG),
+    
+    # 2. Evasive/Furtive
+    RS_evasive     = pmax(SUSPECTS_ACTIONS_FURTIVE_FLAG,
+                          BACKROUND_CIRCUMSTANCES_FURTIVE_FLAG,
+                          SUSPECTS_ACTIONS_EVASION_FLAG,
+                          SUSPECTS_ACTIONS_CHANGE_DIRECTION_FLAG),
+    
+    # 3. Crime Location
+    RS_crime_loc   = pmax(BACKROUND_CIRCUMSTANCES_RECENT_CRIME_FLAG,
+                          SUSPECTS_ACTIONS_TIME_FLAG,
+                          SUSPECTS_ACTIONS_IDENTIFY_CRIME_PATTERN_FLAG,
+                          SUSPECTS_ACTIONS_PROXIMITY_TO_SCENE_FLAG),
+    
+    # 4. Casing
+    RS_casing      = pmax(SUSPECTS_ACTIONS_CASING_FLAG,
+                          SUSPECTS_ACTIONS_LOOKOUT_FLAG),
+    
+    # 5. Other
+    RS_other       = pmax(SUSPECTS_ACTIONS_OTHER_FLAG,
+                          SUSPECTS_ACTIONS_OTHER_BEHAVIOR_FLAG,
+                          SUSPECTS_ACTIONS_INCIDENT_FLAG),
+    
+    # 6. Drug Transaction
+    RS_drug        = SUSPECTS_ACTIONS_DRUG_TRANSACTIONS_FLAG,
+    
+    # 7. Suspicious Object
+    RS_susp_obj    = pmax(BACKROUND_CIRCUMSTANCES_BULGE_FLAG,
+                          BACKROUND_CIRCUMSTANCES_ATTIRE_FLAG,
+                          BACKROUND_CIRCUMSTANCES_OTHER_SUSPECT_WEAPON_FLAG,
+                          SUSPECTS_ACTIONS_CONCEALED_POSSESSION_WEAPON_FLAG,
+                          SUSPECTS_ACTIONS_CLOTHING_FLAG),
+    
+    # 8. Criminal Appearances
+    RS_crim_appear = pmax(SUSPECTS_ACTIONS_ASSOCIATION_FLAG,
+                          SUSPECTS_ACTIONS_SOUND_FLAG,
+                          SUSPECTS_ACTIONS_OBJECTS_FLAG,
+                          
+                          BACKROUND_CIRCUMSTANCES_SUSPECT_KNOWN_TO_CARRY_WEAPON_FLAG),
+    
+    # 9. Violent Crime
+    RS_violent     = pmax(SUSPECTS_ACTIONS_VIOLENT_CRIME_FLAG,
+                          BACKROUND_CIRCUMSTANCES_VIOLENT_CRIME_FLAG,
+                          BACKROUND_CIRCUMSTANCES_VERBAL_THREATS_FLAG)
+  )
+
+RS_factors <- c("RS_fits_desc", "RS_evasive", "RS_crime_loc", "RS_casing",
+                "RS_other", "RS_drug", "RS_susp_obj", "RS_crim_appear",
+                "RS_violent")
+
 
 # --- formula components ----
 race_vars <- c("black", "hisp_black", "hisp_white")
 demo_vars <- c("age", "female")
 
-rhs_base    <- paste(c(race_vars, demo_vars), collapse = " + ")
-rhs_rs      <- paste(c(race_vars, demo_vars, RS_flags), collapse = " + ")
-
-# Model (2): RS flags + interactions with each race dummy
-rs_x_black      <- paste(paste0("black:",      RS_flags), collapse = " + ")
-rs_x_hisp_black <- paste(paste0("hisp_black:", RS_flags), collapse = " + ")
-rs_x_hisp_white <- paste(paste0("hisp_white:", RS_flags), collapse = " + ")
-rhs_rs_int <- paste(c(race_vars, demo_vars, RS_flags,
-                      rs_x_black, rs_x_hisp_black, rs_x_hisp_white),
-                    collapse = " + ")
+rhs_base <- paste(c(race_vars, demo_vars), collapse = " + ")
+rhs_rs   <- paste(c(race_vars, demo_vars, RS_factors), collapse = " + ")
 
 # FE progresson:
 # (1) time + crime FE, no RS flags
@@ -151,7 +194,7 @@ etable(sum_1, sum_2, sum_3,
 
 # Step 1: logistic regression for sanction probability
 step1_logit <- feglm(
-  as.formula(paste("sanction ~", rhs_rs, fe_str)),
+  as.formula(paste("sanction ~", rhs_rs, fe_3)),
   data   = stops_indiv,
   family = binomial(link = "logit"),
   cluster = ~pct
@@ -174,7 +217,7 @@ step2_no_fe <- feols(
 )
 
 step2_fe <- feols(
-  as.formula(paste("arrest ~", rhs_step2, fe_str)),
+  as.formula(paste("arrest ~", rhs_step2, fe_3)),
   data    = dplyr::filter(stops_indiv, sanction == 1L, !is.na(p_sanction)),
   cluster = ~pct
 )
@@ -195,7 +238,7 @@ stops_indiv <- stops_indiv |>
     TRUE         ~ "Adams"
   ), levels = c("Bloomberg", "de Blasio", "Adams")))
 
-rhs_rs_local <- paste(c("black", "hisp_black", "hisp_white", "age", "female", RS_flags), collapse = " + ")
+rhs_rs_local <- paste(c("black", "hisp_black", "hisp_white", "age", "female", RS_factors), collapse = " + ")
 
 fml_san  <- as.formula(paste("sanction ~", rhs_rs_local, fe_3))
 fml_arr  <- as.formula(paste("arrest ~",  rhs_rs_local, fe_3))
@@ -203,10 +246,12 @@ fml_sum  <- as.formula(paste("summons ~", rhs_rs_local, fe_3))
 
 # --- sanction ----
 dat_bloomberg <- dplyr::filter(stops_indiv, mayor == "Bloomberg")
+dat_deblasio  <- dplyr::filter(stops_indiv, mayor == "de Blasio")
+dat_adams     <- dplyr::filter(stops_indiv, mayor == "Adams")
 
 san_bloomberg <- feols(fml_san, data = dat_bloomberg, cluster = ~pct)
-san_deblasio  <- feols(fml_san, data = dplyr::filter(stops_indiv, mayor == "de Blasio"),  cluster = ~pct)
-san_adams     <- feols(fml_san, data = dplyr::filter(stops_indiv, mayor == "Adams"),       cluster = ~pct)
+san_deblasio  <- feols(fml_san, data = dat_deblasio,  cluster = ~pct)
+san_adams     <- feols(fml_san, data = dat_adams,      cluster = ~pct)
 
 etable(san_bloomberg, san_deblasio, san_adams,
        title   = "Sanction Probability by Mayoral Administration",
@@ -215,8 +260,8 @@ etable(san_bloomberg, san_deblasio, san_adams,
 
 # --- arrest ----
 arr_bloomberg <- feols(fml_arr, data = dat_bloomberg, cluster = ~pct)
-arr_deblasio  <- feols(fml_arr, data = dplyr::filter(stops_indiv, mayor == "de Blasio"),  cluster = ~pct)
-arr_adams     <- feols(fml_arr, data = dplyr::filter(stops_indiv, mayor == "Adams"),       cluster = ~pct)
+arr_deblasio  <- feols(fml_arr, data = dat_deblasio,  cluster = ~pct)
+arr_adams     <- feols(fml_arr, data = dat_adams,      cluster = ~pct)
 
 etable(arr_bloomberg, arr_deblasio, arr_adams,
        title   = "Arrest Probability by Mayoral Administration",
@@ -225,8 +270,8 @@ etable(arr_bloomberg, arr_deblasio, arr_adams,
 
 # --- summons ----
 sum_bloomberg <- feols(fml_sum, data = dat_bloomberg, cluster = ~pct)
-sum_deblasio  <- feols(fml_sum, data = dplyr::filter(stops_indiv, mayor == "de Blasio"),  cluster = ~pct)
-sum_adams     <- feols(fml_sum, data = dplyr::filter(stops_indiv, mayor == "Adams"),       cluster = ~pct)
+sum_deblasio  <- feols(fml_sum, data = dat_deblasio,  cluster = ~pct)
+sum_adams     <- feols(fml_sum, data = dat_adams,      cluster = ~pct)
 
 etable(sum_bloomberg, sum_deblasio, sum_adams,
        title   = "Summons Probability by Mayoral Administration",
@@ -236,15 +281,15 @@ etable(sum_bloomberg, sum_deblasio, sum_adams,
 # --- Wald tests: do race coefficients differ across mayors? ----
 fml_san_int <- as.formula(paste(
   "sanction ~ (black + hisp_black + hisp_white) * mayor + age + female +",
-  paste(RS_flags, collapse = " + "), fe_3
+  paste(RS_factors, collapse = " + "), fe_3
 ))
 fml_arr_int <- as.formula(paste(
   "arrest ~ (black + hisp_black + hisp_white) * mayor + age + female +",
-  paste(RS_flags, collapse = " + "), fe_3
+  paste(RS_factors, collapse = " + "), fe_3
 ))
 fml_sum_int <- as.formula(paste(
   "summons ~ (black + hisp_black + hisp_white) * mayor + age + female +",
-  paste(RS_flags, collapse = " + "), fe_3
+  paste(RS_factors, collapse = " + "), fe_3
 ))
 
 san_interact <- feols(fml_san_int, data = stops_indiv, cluster = ~pct)
