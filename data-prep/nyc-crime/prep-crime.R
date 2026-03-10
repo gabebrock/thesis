@@ -6,6 +6,7 @@
 #'   crime_pct_month.rds   — precinct × year × month crime counts + suspect race props
 #'   crime_tract_month.rds — census tract × year × month (spatial join on lat/lon)
 #'   crime_points.rds      — individual complaints with coordinates for dot maps
+#'   pct_month_lagged.rds
 #'
 #' Requires in environment: tracts_sf (crs = 4326, must have GEOID column)
 
@@ -371,6 +372,6 @@ pct_month_lagged <- pct_month_full %>%
 saveRDS(crime_pct_month,   file = "data/data-final/nyc-crime/crime_pct_month.rds")
 saveRDS(crime_tract_month, file = "data/data-final/nyc-crime/crime_tract_month.rds")
 saveRDS(crime_points,      file = "data/data-final/nyc-crime/crime_points.rds")
-saveRDS(pct_month_lagged,  file = "data/data-final/pct_month_lagged.rds")
+saveRDS(pct_month_lagged,  file = "data/data-final/nyc-crime/pct_month_lagged.rds")
 
 } # end if/else cache check
