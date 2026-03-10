@@ -47,27 +47,16 @@ rhs_hisp_5 <- paste(c("hisp_cat", ses_vars, "lag_total_crime_rate", "lag_delta_v
 # BLACK COMPOSITION BINS
 # ===========================================================================
 
-# Set A: precinct FE
-mb_pct_1 <- feols(as.formula(paste("log_stops ~", rhs_black_1)),          data = panel_binned, cluster = ~boro)
-mb_pct_2 <- feols(as.formula(paste("log_stops ~", rhs_black_2)),          data = panel_binned, cluster = ~boro)
-mb_pct_3 <- feols(as.formula(paste("log_stops ~", rhs_black_3)),          data = panel_binned, cluster = ~boro)
-mb_pct_4 <- feols(as.formula(paste("log_stops ~", rhs_black_3, "| pct")), data = panel_binned, cluster = ~boro)
-mb_pct_5 <- feols(as.formula(paste("log_stops ~", rhs_black_5, "| pct")), data = panel_binned, cluster = ~boro)
+mb_pct_1 <- feols(as.formula(paste("log_stops ~", rhs_black_1, "| pct")),         data = panel_binned, cluster = ~pct)
+mb_pct_2 <- feols(as.formula(paste("log_stops ~", rhs_black_2, "| pct")),         data = panel_binned, cluster = ~pct)
+mb_pct_3 <- feols(as.formula(paste("log_stops ~", rhs_black_3, "| pct")),         data = panel_binned, cluster = ~pct)
+mb_pct_4 <- feols(as.formula(paste("log_stops ~", rhs_black_5, "| pct")),         data = panel_binned, cluster = ~pct)
+mb_pct_5 <- feols(as.formula(paste("log_stops ~", rhs_black_5, "| pct + month")), data = panel_binned, cluster = ~pct)
 
 etable(
   mb_pct_1, mb_pct_2, mb_pct_3, mb_pct_4, mb_pct_5,
   title   = "Stop Frequency by % Black Residents — Precinct Fixed Effects",
-  headers = c("(1) Base", "(2) +SES", "(3) +Crime", "(4) +Pct FE", "(5) +ΔViolent")
-)
-
-# Set B: borough FE
-mb_boro_4 <- feols(as.formula(paste("log_stops ~", rhs_black_3, "| boro")), data = panel_binned, cluster = ~pct)
-mb_boro_5 <- feols(as.formula(paste("log_stops ~", rhs_black_5, "| boro")), data = panel_binned, cluster = ~pct)
-
-etable(
-  mb_pct_1, mb_pct_2, mb_pct_3, mb_boro_4, mb_boro_5,
-  title   = "Stop Frequency by % Black Residents — Borough Fixed Effects",
-  headers = c("(1) Base", "(2) +SES", "(3) +Crime", "(4) +Boro FE", "(5) +ΔViolent")
+  headers = c("Race Only", "(1) + SES", "(2) + Crime", "(3) + \u0394Violent", "(4) + Month FE")
 )
 
 
@@ -75,27 +64,16 @@ etable(
 # HISPANIC COMPOSITION BINS
 # ===========================================================================
 
-# Set A: precinct FE
-mh_pct_1 <- feols(as.formula(paste("log_stops ~", rhs_hisp_1)),          data = panel_binned, cluster = ~boro)
-mh_pct_2 <- feols(as.formula(paste("log_stops ~", rhs_hisp_2)),          data = panel_binned, cluster = ~boro)
-mh_pct_3 <- feols(as.formula(paste("log_stops ~", rhs_hisp_3)),          data = panel_binned, cluster = ~boro)
-mh_pct_4 <- feols(as.formula(paste("log_stops ~", rhs_hisp_3, "| pct")), data = panel_binned, cluster = ~boro)
-mh_pct_5 <- feols(as.formula(paste("log_stops ~", rhs_hisp_5, "| pct")), data = panel_binned, cluster = ~boro)
+mh_pct_1 <- feols(as.formula(paste("log_stops ~", rhs_hisp_1, "| pct")),         data = panel_binned, cluster = ~pct)
+mh_pct_2 <- feols(as.formula(paste("log_stops ~", rhs_hisp_2, "| pct")),         data = panel_binned, cluster = ~pct)
+mh_pct_3 <- feols(as.formula(paste("log_stops ~", rhs_hisp_3, "| pct")),         data = panel_binned, cluster = ~pct)
+mh_pct_4 <- feols(as.formula(paste("log_stops ~", rhs_hisp_5, "| pct")),         data = panel_binned, cluster = ~pct)
+mh_pct_5 <- feols(as.formula(paste("log_stops ~", rhs_hisp_5, "| pct + month")), data = panel_binned, cluster = ~pct)
 
 etable(
   mh_pct_1, mh_pct_2, mh_pct_3, mh_pct_4, mh_pct_5,
   title   = "Stop Frequency by % Hispanic Residents — Precinct Fixed Effects",
-  headers = c("(1) Base", "(2) +SES", "(3) +Crime", "(4) +Pct FE", "(5) +ΔViolent")
-)
-
-# Set B: borough FE
-mh_boro_4 <- feols(as.formula(paste("log_stops ~", rhs_hisp_3, "| boro")), data = panel_binned, cluster = ~pct)
-mh_boro_5 <- feols(as.formula(paste("log_stops ~", rhs_hisp_5, "| boro")), data = panel_binned, cluster = ~pct)
-
-etable(
-  mh_pct_1, mh_pct_2, mh_pct_3, mh_boro_4, mh_boro_5,
-  title   = "Stop Frequency by % Hispanic Residents — Borough Fixed Effects",
-  headers = c("(1) Base", "(2) +SES", "(3) +Crime", "(4) +Boro FE", "(5) +ΔViolent")
+  headers = c("Race Only", "(1) + SES", "(2) + Crime", "(3) + \u0394Violent", "(4) + Month FE")
 )
 
 
@@ -124,29 +102,18 @@ rhs_both_2 <- paste(c("black_cat", "hisp_cat", ses_vars), collapse = " + ")
 rhs_both_3 <- paste(c("black_cat", "hisp_cat", ses_vars, "lag_total_crime_rate"), collapse = " + ")
 rhs_both_5 <- paste(c("black_cat", "hisp_cat", ses_vars, "lag_total_crime_rate", "lag_delta_violent"), collapse = " + ")
 
-# Set A: precinct FE
-mc_pct_1 <- feols(as.formula(paste("log_stops ~", rhs_both_1)),          data = panel_binned, cluster = ~boro)
-mc_pct_2 <- feols(as.formula(paste("log_stops ~", rhs_both_2)),          data = panel_binned, cluster = ~boro)
-mc_pct_3 <- feols(as.formula(paste("log_stops ~", rhs_both_3)),          data = panel_binned, cluster = ~boro)
-mc_pct_4 <- feols(as.formula(paste("log_stops ~", rhs_both_3, "| pct")), data = panel_binned, cluster = ~pct)
-mc_pct_5 <- feols(as.formula(paste("log_stops ~", rhs_both_5, "| pct")), data = panel_binned, cluster = ~pct)
+mc_pct_1 <- feols(as.formula(paste("log_stops ~", rhs_both_1, "| pct")),         data = panel_binned, cluster = ~pct)
+mc_pct_2 <- feols(as.formula(paste("log_stops ~", rhs_both_2, "| pct")),         data = panel_binned, cluster = ~pct)
+mc_pct_3 <- feols(as.formula(paste("log_stops ~", rhs_both_3, "| pct")),         data = panel_binned, cluster = ~pct)
+mc_pct_4 <- feols(as.formula(paste("log_stops ~", rhs_both_5, "| pct")),         data = panel_binned, cluster = ~pct)
+mc_pct_5 <- feols(as.formula(paste("log_stops ~", rhs_both_5, "| pct + month")), data = panel_binned, cluster = ~pct)
 
 etable(
   mc_pct_1, mc_pct_2, mc_pct_3, mc_pct_4, mc_pct_5,
   title   = "Stop Frequency by % Black & Hispanic Residents — Precinct Fixed Effects",
-  headers = c("(1) Base", "(2) +SES", "(3) +Crime", "(4) +Pct FE", "(5) +Change in\nViolent")
-)
-
-etable(mc_pct_5)
-
-# Set B: borough FE
-mc_boro_4 <- feols(as.formula(paste("log_stops ~", rhs_both_3, "| boro")), data = panel_binned, cluster = ~pct)
-mc_boro_5 <- feols(as.formula(paste("log_stops ~", rhs_both_5, "| boro")), data = panel_binned, cluster = ~pct)
-
-etable(
-  mc_pct_1, mc_pct_2, mc_pct_3, mc_boro_4, mc_boro_5,
-  title   = "Stop Frequency by % Black & Hispanic Residents — Borough Fixed Effects",
-  headers = c("(1) Base", "(2) +SES", "(3) +Crime", "(4) +Boro FE", "(5) +ΔViolent")
+  headers = c("Race Only", "(1) + SES", "(2) + Crime", "(3) + Change in\nViolent Crime", "(4) + Month FE"),
+  keep    = c("black_cat", "hisp_cat"),
+  view    = T
 )
 
 # ===========================================================================
@@ -160,30 +127,20 @@ panel_binned <- panel_binned |>
     TRUE         ~ "Adams"
   ), levels = c("Bloomberg", "de Blasio", "Adams")))
 
-fml_bins_best <- as.formula(paste("log_stops ~", rhs_both_5, "| pct"))
+fml_bins_best <- as.formula(paste("log_stops ~", rhs_both_5, "| pct + month"))
 
-mc_bloomberg <- feols(fml_bins_best, data = dplyr::filter(panel_binned, mayor
-                                                          == "Bloomberg"), cluster = ~boro)
-mc_deblasio  <- feols(fml_bins_best, data = dplyr::filter(panel_binned, mayor
-                                                          == "de Blasio"),  cluster = ~boro)
-mc_adams     <- feols(fml_bins_best, data = dplyr::filter(panel_binned, mayor
-                                                          == "Adams"),       cluster = ~boro)
+mc_bloomberg <- feols(fml_bins_best, data = dplyr::filter(panel_binned, mayor == "Bloomberg"), cluster = ~pct)
+mc_deblasio  <- feols(fml_bins_best, data = dplyr::filter(panel_binned, mayor == "de Blasio"),  cluster = ~pct)
+mc_adams     <- feols(fml_bins_best, data = dplyr::filter(panel_binned, mayor == "Adams"),       cluster = ~pct)
 
 etable(
   mc_bloomberg, mc_deblasio, mc_adams,
   title   = "Stop Frequency by Racial Composition Bins — Mayoral
   Administrations",
   headers = c("Bloomberg\n(2009--2013)", "de Blasio\n(2014--2021)",
-              "Adams\n(2022--)"),
+              "Adams\n(2022--2024)"),
   keep    = c("black_cat", "hisp_cat"),
-  dict    = c(
-    "black_cat20-40"  = "20--40\\% Black",  "black_cat40-60"  = "40--60\\%
-  Black",
-    "black_cat60-100" = "60--100\\% Black", "hisp_cat20-40"   = "20--40\\%
-  Hispanic",
-    "hisp_cat40-60"   = "40--60\\% Hispanic", "hisp_cat60-100" = "60--100\\%
-  Hispanic"
-  )
+  view = T
 )
 
 # --- Wald test: do bin effects differ across mayors? ----

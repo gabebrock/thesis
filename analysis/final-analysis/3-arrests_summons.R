@@ -81,54 +81,47 @@ rhs_rs_int <- paste(c(race_vars, demo_vars, RS_flags,
                       rs_x_black, rs_x_hisp_black, rs_x_hisp_white),
                     collapse = " + ")
 
-fe_str <- "| pct^year + crime"
+# FE progresson:
+# (1) time + crime FE, no RS flags
+# (2) + precinct FE, RS flags included
+# (3) precinct x time FE (precinct-specific time trends), RS flags included
+fe_1 <- "| year + crime"
+fe_2 <- "| pct + year + crime"
+fe_3 <- "| pct^year + crime"
 
 
 # ===========================================================================
 # MODEL SET 1 — SANCTION (arrest or summons)
 # ===========================================================================
 
-# (1a) no FE
-san_1a <- feols(as.formula(paste("sanction ~", rhs_rs)),
-                data = stops_indiv, cluster = ~pct)
+san_1 <- feols(as.formula(paste("sanction ~", rhs_base, fe_1)),
+               data = stops_indiv, cluster = ~pct)
+san_2 <- feols(as.formula(paste("sanction ~", rhs_rs,   fe_2)),
+               data = stops_indiv, cluster = ~pct)
+san_3 <- feols(as.formula(paste("sanction ~", rhs_rs,   fe_3)),
+               data = stops_indiv, cluster = ~pct)
 
-# (1b) + precinct×year FE + crime FE
-san_1b <- feols(as.formula(paste("sanction ~", rhs_rs, fe_str)),
-                data = stops_indiv, cluster = ~pct)
-
-# (2a) RS flag × race interactions, no FE
-san_2a <- feols(as.formula(paste("sanction ~", rhs_rs_int)),
-                data = stops_indiv, cluster = ~pct)
-
-# (2b) RS flag × race interactions + FE
-san_2b <- feols(as.formula(paste("sanction ~", rhs_rs_int, fe_str)),
-                data = stops_indiv, cluster = ~pct)
-
-etable(san_1a, san_1b, san_2a, san_2b,
+etable(san_1, san_2, san_3,
        title   = "OLS: Probability of Sanction",
-       headers = c("(1) No FE", "(1) +FE", "(2) No FE", "(2) +FE"),
-       keep    = c("black", "hisp_black", "hisp_white", "age", "female"))
+       headers = c("OLS (1)", "FE (2)", "FE (3)"),
+       keep    = c("black", "hisp_black", "hisp_white", "age", "female"),
+       view    = T)
 
 
 # ===========================================================================
 # MODEL SET 2 — ARREST
 # ===========================================================================
 
-arr_1a <- feols(as.formula(paste("arrest ~", rhs_rs)),
-                data = stops_indiv, cluster = ~pct)
+arr_1 <- feols(as.formula(paste("arrest ~", rhs_base, fe_1)),
+               data = stops_indiv, cluster = ~pct)
+arr_2 <- feols(as.formula(paste("arrest ~", rhs_rs,   fe_2)),
+               data = stops_indiv, cluster = ~pct)
+arr_3 <- feols(as.formula(paste("arrest ~", rhs_rs,   fe_3)),
+               data = stops_indiv, cluster = ~pct)
 
-arr_1b <- feols(as.formula(paste("arrest ~", rhs_rs, fe_str)),
-                data = stops_indiv, cluster = ~pct)
-
-arr_2a <- feols(as.formula(paste("arrest ~", rhs_rs_int)),
-                data = stops_indiv, cluster = ~pct)
-
-arr_2b <- feols(as.formula(paste("arrest ~", rhs_rs_int, fe_str)),
-                data = stops_indiv, cluster = ~pct)
-
-etable(arr_1a, arr_1b, arr_2a, arr_2b,
+etable(arr_1, arr_2, arr_3,
        title   = "OLS: Probability of Arrest",
-       headers = c("(1) No FE", "(1) +FE", "(2) No FE", "(2) +FE"),
+       headers = c("OLS (1)", "FE (2)", "FE (3)"),
        keep    = c("black", "hisp_black", "hisp_white", "age", "female"))
 
 
@@ -136,21 +129,16 @@ etable(arr_1a, arr_1b, arr_2a, arr_2b,
 # MODEL SET 3 — SUMMONS
 # ===========================================================================
 
-sum_1a <- feols(as.formula(paste("summons ~", rhs_rs)),
-                data = stops_indiv, cluster = ~pct)
+sum_1 <- feols(as.formula(paste("summons ~", rhs_base, fe_1)),
+               data = stops_indiv, cluster = ~pct)
+sum_2 <- feols(as.formula(paste("summons ~", rhs_rs,   fe_2)),
+               data = stops_indiv, cluster = ~pct)
+sum_3 <- feols(as.formula(paste("summons ~", rhs_rs,   fe_3)),
+               data = stops_indiv, cluster = ~pct)
 
-sum_1b <- feols(as.formula(paste("summons ~", rhs_rs, fe_str)),
-                data = stops_indiv, cluster = ~pct)
-
-sum_2a <- feols(as.formula(paste("summons ~", rhs_rs_int)),
-                data = stops_indiv, cluster = ~pct)
-
-sum_2b <- feols(as.formula(paste("summons ~", rhs_rs_int, fe_str)),
-                data = stops_indiv, cluster = ~pct)
-
-etable(sum_1a, sum_1b, sum_2a, sum_2b,
+etable(sum_1, sum_2, sum_3,
        title   = "OLS: Probability of Summons",
-       headers = c("(1) No FE", "(1) +FE", "(2) No FE", "(2) +FE"),
+       headers = c("OLS (1)", "FE (2)", "FE (3)"),
        keep    = c("black", "hisp_black", "hisp_white", "age", "female"))
 
 
@@ -209,12 +197,14 @@ stops_indiv <- stops_indiv |>
 
 rhs_rs_local <- paste(c("black", "hisp_black", "hisp_white", "age", "female", RS_flags), collapse = " + ")
 
-fml_san  <- as.formula(paste("sanction ~", rhs_rs_local, fe_str))
-fml_arr  <- as.formula(paste("arrest ~",  rhs_rs_local, fe_str))
-fml_sum  <- as.formula(paste("summons ~", rhs_rs_local, fe_str))
+fml_san  <- as.formula(paste("sanction ~", rhs_rs_local, fe_3))
+fml_arr  <- as.formula(paste("arrest ~",  rhs_rs_local, fe_3))
+fml_sum  <- as.formula(paste("summons ~", rhs_rs_local, fe_3))
 
 # --- sanction ----
-san_bloomberg <- feols(fml_san, data = dplyr::filter(stops_indiv, mayor == "Bloomberg"), cluster = ~pct)
+dat_bloomberg <- dplyr::filter(stops_indiv, mayor == "Bloomberg")
+
+san_bloomberg <- feols(fml_san, data = dat_bloomberg, cluster = ~pct)
 san_deblasio  <- feols(fml_san, data = dplyr::filter(stops_indiv, mayor == "de Blasio"),  cluster = ~pct)
 san_adams     <- feols(fml_san, data = dplyr::filter(stops_indiv, mayor == "Adams"),       cluster = ~pct)
 
@@ -224,7 +214,7 @@ etable(san_bloomberg, san_deblasio, san_adams,
        keep    = c("black", "hisp_black", "hisp_white", "age", "female"))
 
 # --- arrest ----
-arr_bloomberg <- feols(fml_arr, data = dplyr::filter(stops_indiv, mayor == "Bloomberg"), cluster = ~pct)
+arr_bloomberg <- feols(fml_arr, data = dat_bloomberg, cluster = ~pct)
 arr_deblasio  <- feols(fml_arr, data = dplyr::filter(stops_indiv, mayor == "de Blasio"),  cluster = ~pct)
 arr_adams     <- feols(fml_arr, data = dplyr::filter(stops_indiv, mayor == "Adams"),       cluster = ~pct)
 
@@ -234,7 +224,7 @@ etable(arr_bloomberg, arr_deblasio, arr_adams,
        keep    = c("black", "hisp_black", "hisp_white", "age", "female"))
 
 # --- summons ----
-sum_bloomberg <- feols(fml_sum, data = dplyr::filter(stops_indiv, mayor == "Bloomberg"), cluster = ~pct)
+sum_bloomberg <- feols(fml_sum, data = dat_bloomberg, cluster = ~pct)
 sum_deblasio  <- feols(fml_sum, data = dplyr::filter(stops_indiv, mayor == "de Blasio"),  cluster = ~pct)
 sum_adams     <- feols(fml_sum, data = dplyr::filter(stops_indiv, mayor == "Adams"),       cluster = ~pct)
 
@@ -246,15 +236,15 @@ etable(sum_bloomberg, sum_deblasio, sum_adams,
 # --- Wald tests: do race coefficients differ across mayors? ----
 fml_san_int <- as.formula(paste(
   "sanction ~ (black + hisp_black + hisp_white) * mayor + age + female +",
-  paste(RS_flags, collapse = " + "), "| pct^year + crime"
+  paste(RS_flags, collapse = " + "), fe_3
 ))
 fml_arr_int <- as.formula(paste(
   "arrest ~ (black + hisp_black + hisp_white) * mayor + age + female +",
-  paste(RS_flags, collapse = " + "), "| pct^year + crime"
+  paste(RS_flags, collapse = " + "), fe_3
 ))
 fml_sum_int <- as.formula(paste(
   "summons ~ (black + hisp_black + hisp_white) * mayor + age + female +",
-  paste(RS_flags, collapse = " + "), "| pct^year + crime"
+  paste(RS_flags, collapse = " + "), fe_3
 ))
 
 san_interact <- feols(fml_san_int, data = stops_indiv, cluster = ~pct)

@@ -57,9 +57,15 @@ panel <- stops %>%
   dplyr::ungroup() %>%
   dplyr::filter(!is.na(lag_total_crime_rate), !is.na(lag_delta_violent))
 
+panel <- panel %>%                                                       
+  dplyr::mutate(
+    pct_black100 = pct_black * 100,                                      
+    pct_hisp100  = pct_hisp  * 100
+  )
+
 
 # --- formula components ----
-race_vars <- c("pct_black", "pct_hisp")
+race_vars <- c("pct_black100", "pct_hisp100")
 ses_vars  <- c("pop_density", "pct_18_24", "pct_foreign_born", "log_total_pop", "median_income")
 
 rhs_1 <- paste(race_vars, collapse = " + ")
@@ -72,19 +78,56 @@ rhs_5 <- paste(c(race_vars, ses_vars, "lag_total_crime_rate", "lag_delta_violent
 # SET A: precinct fixed effects
 # ===========================================================================
 
-m_pct_1 <- feols(as.formula(paste("log_stops ~", rhs_1)),            data = panel, cluster = ~boro)
-m_pct_2 <- feols(as.formula(paste("log_stops ~", rhs_2)),            data = panel, cluster = ~boro)
-m_pct_3 <- feols(as.formula(paste("log_stops ~", rhs_3)),            data = panel, cluster = ~boro)
-m_pct_4 <- feols(as.formula(paste("log_stops ~", rhs_3, "| pct")),   data = panel, cluster = ~boro)
-m_pct_5 <- feols(as.formula(paste("log_stops ~", rhs_5, "| pct")),   data = panel, cluster = ~boro)
+m_pct_1 <- feols(as.formula(paste("log_stops ~", rhs_1, "| pct")),          data = panel, cluster = ~pct)
+m_pct_2 <- feols(as.formula(paste("log_stops ~", rhs_2, "| pct")),          data = panel, cluster = ~pct)
+m_pct_3 <- feols(as.formula(paste("log_stops ~", rhs_3, "| pct")),          data = panel, cluster = ~pct)
+m_pct_4 <- feols(as.formula(paste("log_stops ~", rhs_5, "| pct ")),    data = panel, cluster = ~pct)
+m_pct_5 <- feols(as.formula(paste("log_stops ~", rhs_5, "| pct + month")),    data = panel, cluster = ~pct)
 
 etable(
   m_pct_1, m_pct_2, m_pct_3, m_pct_4, m_pct_5,
-  title   = "Stop Frequency — Borough Fixed Effects",
-  headers = c("(Base\n(Race Only)", "(1) + SES", "(2) + Crime", "(3) + Boro FE", "(4) + Change in\nViolent Crime"),
+  title   = "Stop Frequency — Precinct Fixed Effects",
+  headers = c("Race Only", "(1) + SES", "(2) + Crime", "(3) +\nChange in\nViolent Crime", "(4) + Month FE"),
   keep    = c("pct_black", "pct_hisp"),
-  dict    = c("%pct_black" = "\\% Black", "%pct_hisp" = "\\% Hispanic")
+  dict    = c("%pct_black100" = "\\% Black", "%pct_hisp100" = "\\% Hispanic"),
+  view = T
 )
+
+# --- coefficient plot ----
+models      <- list(m_pct_1, m_pct_2, m_pct_3, m_pct_4, m_pct_5)
+model_labels <- c("Race Only", "(1) + SES", "(2) + Crime", "(3) + Change in\nViolent\nCrime", "(4) + Month FE")
+
+coef_df <- purrr::map2_dfr(models, model_labels, function(m, label) {
+  est <- broom::tidy(m, conf.int = TRUE) %>%
+    dplyr::filter(term %in% c("pct_black100", "pct_hisp100")) %>%
+    dplyr::mutate(
+      model    = label,
+      variable = dplyr::recode(term,
+        pct_black100 = "% Black",
+        pct_hisp100  = "% Hispanic"
+      )
+    )
+}) %>%
+  dplyr::mutate(model = factor(model, levels = model_labels))
+
+ggplot(coef_df, aes(x = estimate, y = model, color = variable, shape = variable)) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high),
+                  position = position_dodge(width = 0.4), size = 0.5) +
+  scale_color_manual(values = c("% Black" = "#1b6ca8", "% Hispanic" = "#c0392b")) +
+  scale_y_discrete(limits = rev(model_labels)) +
+  labs(
+    x     = "Coefficient (log monthly stops per 1pp)",
+    y     = NULL,
+    color = NULL, shape = NULL
+  ) +
+  theme_bw(base_size = 11) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+
+ggsave("figures/fig_stop_freq_coefplot.png", width = 6, height = 4, dpi = 300)
 
 
 # ===========================================================================
@@ -95,13 +138,13 @@ etable(
 m_boro_4 <- feols(as.formula(paste("log_stops ~", rhs_3, "| boro")), data = panel, cluster = ~pct)
 m_boro_5 <- feols(as.formula(paste("log_stops ~", rhs_5, "| boro")), data = panel, cluster = ~pct)
 
-etable(
-  m_pct_1, m_pct_2, m_pct_3, m_boro_4, m_boro_5,
-  title   = "Stop Frequency — Borough Fixed Effects",
-  headers = c("(Base\n(Race Only)", "(1) + SES", "(2) + Crime", "(3) + Boro FE", "(4) + Change in\nViolent Crime"),
-  keep    = c("pct_black", "pct_hisp"),
-  dict    = c(pct_black = "\\% Black", pct_hisp = "\\% Hispanic")
-)
+# etable(
+#   m_pct_1, m_pct_2, m_pct_3, m_boro_4, m_boro_5,
+#   title   = "Stop Frequency — Borough Fixed Effects",
+#   headers = c("(Base\n(Race Only)", "(1) + SES", "(2) + Crime", "(3) + Boro FE", "(4) + Change in\nViolent Crime"),
+#   keep    = c("pct_black", "pct_hisp"),
+#   dict    = c(pct_black = "\\% Black", pct_hisp = "\\% Hispanic")
+# )
 
 
 # ===========================================================================
@@ -110,21 +153,24 @@ etable(
 
 panel <- panel |>
   dplyr::mutate(mayor = factor(dplyr::case_when(
+    is.na(year)  ~ NA_character_,
     year <= 2013 ~ "Bloomberg",
-    year <= 2021 ~ "de Blasio",
+    year <= 2021 & year >= 2014 ~ "de Blasio",
     TRUE         ~ "Adams"
   ), levels = c("Bloomberg", "de Blasio", "Adams")))
 
-fml_best <- as.formula(paste("log_stops ~", rhs_5, "| pct"))
+fml_best <- as.formula(paste("log_stops ~", rhs_5, "| pct + month"))
 
-m_bloomberg <- feols(fml_best, data = dplyr::filter(panel, mayor == "Bloomberg"), cluster = ~boro)
-m_deblasio  <- feols(fml_best, data = dplyr::filter(panel, mayor == "de Blasio"),  cluster = ~boro)
-m_adams     <- feols(fml_best, data = dplyr::filter(panel, mayor == "Adams"),       cluster = ~boro)
+m_bloomberg <- feols(fml_best, data = dplyr::filter(panel, mayor == "Bloomberg"), cluster = ~pct)
+m_deblasio  <- feols(fml_best, data = dplyr::filter(panel, mayor == "de Blasio"),  cluster = ~pct)
+m_adams     <- feols(fml_best, data = dplyr::filter(panel, mayor == "Adams"),       cluster = ~pct)
 
 etable(
   m_bloomberg, m_deblasio, m_adams,
   title   = "Stop Frequency by Mayoral Administration (Precinct FE, Full Controls)",
-  headers = c("Bloomberg\n(2002–2013)", "de Blasio\n(2014–2021)", "Adams\n(2022–)")
+  headers = c("Bloomberg\n(2002–2013)", "de Blasio\n(2014–2021)", "Adams\n(2022–2024)"),
+  keep    = c("pct_black100", "pct_hisp100"),
+  view = T
 )
 
 # --- Wald test: do racial disparity coefficients differ across mayors? ----
