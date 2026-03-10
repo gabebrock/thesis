@@ -55,7 +55,11 @@ stops_indiv <- sqf_all %>%
     # identifiers for FE
     pct   = as.integer(STOP_LOCATION_PRECINCT),
     year  = as.integer(YEAR2),
-    crime = as.factor(SUSPECTED_CRIME_DESCRIPTION)
+    crime = as.factor(SUSPECTED_CRIME_DESCRIPTION),
+    hour  = as.integer(substr(STOP_FRISK_TIME, 1, 2)),
+    # within-precinct location controls (NY State Plane feet, scaled to km)
+    loc_x = as.numeric(STOP_LOCATION_X) / 1e3,
+    loc_y = as.numeric(STOP_LOCATION_Y) / 1e3
   ) %>%
   dplyr::filter(
     SUSPECT_RACE_DESCRIPTION %in% c("BLACK", "HISPANIC-BLACK", "HISPANIC-WHITE", "WHITE"),
@@ -120,17 +124,18 @@ RS_factors <- c("RS_fits_desc", "RS_evasive", "RS_crime_loc", "RS_casing",
 # --- formula components ----
 race_vars <- c("black", "hisp_black", "hisp_white")
 demo_vars <- c("age", "female")
+loc_vars  <- c("loc_x", "loc_y")
 
-rhs_base <- paste(c(race_vars, demo_vars), collapse = " + ")
-rhs_rs   <- paste(c(race_vars, demo_vars, RS_factors), collapse = " + ")
+rhs_base <- paste(c(race_vars, demo_vars, loc_vars), collapse = " + ")
+rhs_rs   <- paste(c(race_vars, demo_vars, RS_factors, loc_vars), collapse = " + ")
 
 # FE progresson:
-# (1) time + crime FE, no RS flags
+# (1) time + crime + hour FE, no RS flags
 # (2) + precinct FE, RS flags included
 # (3) precinct x time FE (precinct-specific time trends), RS flags included
-fe_1 <- "| year + crime"
-fe_2 <- "| pct + year + crime"
-fe_3 <- "| pct^year + crime"
+fe_1 <- "| year + crime + hour"
+fe_2 <- "| pct + year + crime + hour"
+fe_3 <- "| pct^year + crime + hour"
 
 
 # ===========================================================================
@@ -145,10 +150,12 @@ san_3 <- feols(as.formula(paste("sanction ~", rhs_rs,   fe_3)),
                data = stops_indiv, cluster = ~pct)
 
 etable(san_1, san_2, san_3,
-       title   = "OLS: Probability of Sanction",
-       headers = c("OLS (1)", "FE (2)", "FE (3)"),
-       keep    = c("black", "hisp_black", "hisp_white", "age", "female"),
-       view    = T)
+       title    = "OLS: Probability of Sanction",
+       headers  = c("OLS (1)", "FE (2)", "FE (3)"),
+       keep     = c("black", "hisp_black", "hisp_white"),
+       se.below = FALSE,
+       fitstat  = ~n,
+       view     = TRUE)
 
 
 # ===========================================================================
@@ -165,7 +172,10 @@ arr_3 <- feols(as.formula(paste("arrest ~", rhs_rs,   fe_3)),
 etable(arr_1, arr_2, arr_3,
        title   = "OLS: Probability of Arrest",
        headers = c("OLS (1)", "FE (2)", "FE (3)"),
-       keep    = c("black", "hisp_black", "hisp_white", "age", "female"))
+       keep    = c("black", "hisp_black", "hisp_white"),
+       se.below = FALSE,
+       fitstat  = ~n,
+       view = T)
 
 
 # ===========================================================================
@@ -182,7 +192,10 @@ sum_3 <- feols(as.formula(paste("summons ~", rhs_rs,   fe_3)),
 etable(sum_1, sum_2, sum_3,
        title   = "OLS: Probability of Summons",
        headers = c("OLS (1)", "FE (2)", "FE (3)"),
-       keep    = c("black", "hisp_black", "hisp_white", "age", "female"))
+       keep    = c("black", "hisp_black", "hisp_white"),
+       se.below = FALSE,
+       fitstat  = ~n,
+       view = T)
 
 
 # ===========================================================================
@@ -192,20 +205,18 @@ etable(sum_1, sum_2, sum_3,
 #'         Predicted P(sanction) is added to the arrest model on the
 #'         sanctioned subsample (Step 2).
 
-# Step 1: logistic regression for sanction probability
-step1_logit <- feglm(
+# Step 1: OLS LPM of sanction (estimated across all stops)
+step1_lpm <- feols(
   as.formula(paste("sanction ~", rhs_rs, fe_3)),
-  data   = stops_indiv,
-  family = binomial(link = "logit"),
+  data    = stops_indiv,
   cluster = ~pct
 )
 
-# feglm drops singleton FE groups; fitted() is shorter than stops_indiv.
-# Recover the kept row indices and assign only to those positions.
-removed  <- step1_logit$obs_selection$obsRemoved
+# feols also drops singleton FE groups; recover kept row indices
+removed  <- step1_lpm$obs_selection$obsRemoved
 obs_kept <- setdiff(seq_len(nrow(stops_indiv)), removed)
 stops_indiv$p_sanction <- NA_real_
-stops_indiv$p_sanction[obs_kept] <- as.numeric(fitted(step1_logit))
+stops_indiv$p_sanction[obs_kept] <- as.numeric(fitted(step1_lpm))
 
 # Step 2: OLS arrest model on sanctioned stops only, conditioning on P(sanction)
 rhs_step2 <- paste(c(race_vars, demo_vars, "p_sanction"), collapse = " + ")
@@ -224,7 +235,11 @@ step2_fe <- feols(
 
 etable(step2_no_fe, step2_fe,
        title   = "Two-Step Arrest Model: Arrest | Sanctioned",
-       headers = c("(3) No FE", "(3) +FE"))
+       headers = c("(3) No FE", "(3) +FE"),
+       keep = c("black", "hisp_black", "hisp_white"),
+       se.below = FALSE,
+       fitstat  = ~n,
+       view = T)
 
 
 # ===========================================================================
@@ -240,9 +255,11 @@ stops_indiv <- stops_indiv |>
 
 rhs_rs_local <- paste(c("black", "hisp_black", "hisp_white", "age", "female", RS_factors), collapse = " + ")
 
-fml_san  <- as.formula(paste("sanction ~", rhs_rs_local, fe_3))
-fml_arr  <- as.formula(paste("arrest ~",  rhs_rs_local, fe_3))
-fml_sum  <- as.formula(paste("summons ~", rhs_rs_local, fe_3))
+fe_3_mayor <- "| pct^year + crime"   # hour dropped: missing in Adams-era data
+
+fml_san  <- as.formula(paste("sanction ~", rhs_rs_local, fe_3_mayor))
+fml_arr  <- as.formula(paste("arrest ~",  rhs_rs_local, fe_3_mayor))
+fml_sum  <- as.formula(paste("summons ~", rhs_rs_local, fe_3_mayor))
 
 # --- sanction ----
 dat_bloomberg <- dplyr::filter(stops_indiv, mayor == "Bloomberg")
@@ -277,6 +294,42 @@ etable(sum_bloomberg, sum_deblasio, sum_adams,
        title   = "Summons Probability by Mayoral Administration",
        headers = c("Bloomberg\n(2009--2013)", "de Blasio\n(2014--2021)", "Adams\n(2022--)"),
        keep    = c("black", "hisp_black", "hisp_white", "age", "female"))
+
+# --- two-step arrest model by mayor ----
+#' Step 1: LPM sanction on all stops within administration.
+#' Step 2: OLS arrest | sanctioned, conditioning on p_sanction.
+#' Uses fe_3_mayor (no hour FE) for consistency with mayoral subset models.
+
+two_step_mayor <- function(dat) {
+  rhs_s1 <- paste(c(race_vars, demo_vars, RS_factors, loc_vars), collapse = " + ")
+
+  s1 <- feols(as.formula(paste("sanction ~", rhs_s1, fe_3_mayor)),
+              data = dat, cluster = ~pct)
+
+  removed  <- s1$obs_selection$obsRemoved
+  obs_kept <- setdiff(seq_len(nrow(dat)), removed)
+  dat$p_sanction <- NA_real_
+  dat$p_sanction[obs_kept] <- as.numeric(fitted(s1))
+
+  rhs_s2 <- paste(c(race_vars, demo_vars, loc_vars, "p_sanction"), collapse = " + ")
+
+  feols(as.formula(paste("arrest ~", rhs_s2, fe_3_mayor)),
+        data    = dplyr::filter(dat, sanction == 1L, !is.na(p_sanction)),
+        cluster = ~pct)
+}
+
+ts_bloomberg <- two_step_mayor(dat_bloomberg)
+ts_deblasio  <- two_step_mayor(dat_deblasio)
+ts_adams     <- two_step_mayor(dat_adams)
+
+etable(ts_bloomberg, ts_deblasio, ts_adams,
+       title   = "Two-Step Arrest Model by Mayoral Administration",
+       headers = c("Bloomberg\n(2009--2013)", "de Blasio\n(2014--2021)", "Adams\n(2022--2024)"),
+       keep    = c("black", "hisp_black", "hisp_white"),
+       se.below = FALSE,
+       fitstat  = ~n,
+       view     = TRUE)
+
 
 # --- Wald tests: do race coefficients differ across mayors? ----
 fml_san_int <- as.formula(paste(
