@@ -129,5 +129,6 @@ etable(
     RS_fac5    = "RS_fac5",
     RS_fac7    = "RS_fac7",
     RS_fac8    = "RS_fac8"
-  )
+  ),
+  view = T
 )
