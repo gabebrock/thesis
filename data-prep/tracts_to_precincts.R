@@ -20,7 +20,6 @@ ggplot(nypd_sf) +
   # omit legend
   theme(legend.position = "none")
 
-
 nypd_sf <- nypd_sf %>%
   st_make_valid()
 
@@ -52,7 +51,7 @@ ggplot(tracts_sf) +
   # omit legend
   theme(legend.position = "none")
 
-# get nyc census tract demographic data from tidycensus
+# get nyc census tract demographic data from tidycensus()
 age_vars <- c(
   "B01001_007E", "B01001_008E", "B01001_009E", "B01001_010E", # Male 18–24
   "B01001_031E", "B01001_032E", "B01001_033E", "B01001_034E"  # Female 18–24

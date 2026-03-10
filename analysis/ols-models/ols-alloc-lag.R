@@ -2,6 +2,18 @@
 library(fixest)
 library(tidyverse)
 
+feols(
+  log_stops ~ pct_black + pct_hisp +
+    pct_18_24 + pct_foreign_born +
+    median_income + pct_public_housing +
+    pop_density +
+    lag_violent_rate + lag_nonviolent_rate +
+    shootings,
+  cluster = ~ BoroName,
+  data = pct_month_lagged_blasio
+)
+
+
 # Create datasets for different mayoral administrations if they don't exist
 if (!exists("pct_month_lagged_bloomberg") || !exists("pct_month_lagged_blasio") || !exists("pct_month_lagged_adams")) {
   pct_month_lagged_bloomberg <- test_pct_month_full_lagged %>%
@@ -87,7 +99,7 @@ run_allocation_models <- function(data, admin_name) {
       pct_foreign_born + median_income  +
       lag_violent_rate + lag_nonviolent_rate +
       (violent_rate - lag_violent_rate) +  # Change in violent crime
-      (nonviolent_rate - lag_nonviolent_rate) / lag_violent_rate |  # Change in non-violent crime
+      shooting_rate |  # Change in non-violent crime
       pct + factor(year) + BoroName,
     data = data,
     cluster = "pct"

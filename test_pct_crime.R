@@ -4,7 +4,7 @@
 #' https://data.cityofnewyork.us/Public-Safety/NYPD-Complaint-Data-Historic/qgea-i56i/data_preview
 #'
 #' if crime dataset doesn't already exist
-if (!exists("test_pct_crime")) {
+if (!file.exists("data/nypd-crime/test_pct_crime.rds")) {
   
   #' the data is split into two files, 
   #' one with data 2006 to 2019 and one with data 2020 to 2024
@@ -23,6 +23,10 @@ if (!exists("test_pct_crime")) {
   test_pct_crime <- bind_rows(crime_data_historic_to2019, 
                               crime_data_historic_to2024)
 }
+
+saveRDS(test_pct_crime, file = "data/nypd-crime/test_pct_crime.rds")
+test_pct_crime <- readRDS("data/nypd-crime/test_pct_crime.rds")
+
 
 # list of required variables for OLS models
 req_vars <- c("pct", "boro", "year", "month",
@@ -80,7 +84,11 @@ test_pct_crime <- test_pct_crime %>%
 #' summary table of offenses
 test_pct_crime %>%
   group_by(LAW_CAT_CD) %>%
-  summarize(n = n())
+  summarize(n = n()) %>%
+  mutate(
+    percent = n / sum(n) * 100
+  ) %>%
+  arrange(desc(n))
 
 #' create `felony`, `misdemeanor`, and `violation` variables
 test_pct_crime <- test_pct_crime %>%
@@ -103,7 +111,7 @@ test_pct_crime <- test_pct_crime %>%
                   OBSTR BREATH|TERRORISTIC|RIOT|HOMICIDE|RAPE|SEX|
                  TERRORISM|TORTURE") ~ "Violent",
       
-      ## ── Sex crimes (kept in Other per your rule) ──────
+      ## ── Sex crimes (kept in Other) ──────
       str_detect(PD_DESC, 
                  "SODOMY|INCEST|
                   LEWD|SEX TRAFFICKING") ~ "Other",
@@ -216,10 +224,15 @@ if (!exists("pct_demo_expanded")) {
 #' join total pop from pct_demo for density calculations
 test_pct_crime_month <- test_pct_crime_month %>%
   mutate(year  = as.integer(year),
-         month = as.integer(month)) 
+         month = as.integer(month))
 
 test_pct_crime_month <- test_pct_crime_month %>%
   left_join(pct_demo_month, by = c("pct", "year", "month"))
+
+# join unemployment data
+test_pct_crime_month <- test_pct_crime_month %>%
+  left_join(nyc_unemp_month, by = c("year", "month", "BoroName")) %>%
+  rename(unemp_rate = unemployment_rate)
 
 # 
 test_pct_crime_month <- test_pct_crime_month %>%
@@ -230,47 +243,32 @@ test_pct_crime_month <- test_pct_crime_month %>%
          nonviolent_rate = log((nonviolent_crime + 1) / total_pop * 1000)) %>%
   mutate(date = as.Date(paste0(year_month, "-01")))
 
+# shootings
+shootings_historic <- read_csv("data/nypd-crime/NYPD_Shootings_Data__Historic.csv")
 
-library(blscrapeR)
-library(dplyr)
+#' lubridate dates, 
+#' if `CMPLNT_FR_DT` is more than 3 days before `CMPLNT_TO_DT`,
+#' then use `CMPLNT_TO_DT` as the year/month, otherwise use `CMPLNT_FR_DT`
+shootings_historic <- shootings_historic %>%
+  mutate(
+    OCCUR_DATE = mdy(OCCUR_DATE),
+    year  = as.integer(year(OCCUR_DATE)), # lube year from date
+    month = as.integer(month(OCCUR_DATE)) # lube month from date
+  )
 
-county_fips <- c(
-  Bronx = "36005",
-  Brooklyn = "36047",
-  Manhattan = "36061",
-  Queens = "36081",
-  `Staten Island` = "36085"
-)
+#' create `pct` and `boro` variables
+shootings_historic <- shootings_historic %>%
+  mutate(pct = as.numeric(PRECINCT),
+         BoroName = BORO
+  )
 
-get_monthly_unemp <- function(fips) {
-  series_id <- paste0("LAUCN", fips, "0000000003") # monthly unemployment rate
-  bls_api(series_id,
-          startyear = 2009,
-          endyear = 2024,
-          registrationKey = Sys.getenv("BLS_KEY")) %>%
-    mutate(
-      year = as.integer(year),
-      month = match(periodName, month.name),  # converts "January" → 1, etc.
-      unemployment_rate = as.numeric(value),
-      county_fips = fips
-    ) %>%
-    select(year, month, unemployment_rate, county_fips)
-}
-
-nyc_unemp_month <- map_dfr(county_fips, get_monthly_unemp)
-
-boro_fips <- tibble(
-  BoroName = c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island"),
-  county_fips = c("36005", "36047", "36061", "36081", "36085")
-)
-
-nyc_unemp_month <- nyc_unemp_month %>%
-  left_join(boro_fips, by = "county_fips") %>%
-  select(year, month, unemployment_rate, BoroName)
+shootings_year_month <- shootings_historic %>%
+  group_by(pct, year, month) %>%
+  summarize(shootings = n()) %>%
+  ungroup()
 
 test_pct_crime_month <- test_pct_crime_month %>%
-  left_join(nyc_unemp_month, by = c("year", "month", "BoroName")) %>%
-  rename(unemp_rate = unemployment_rate)
+  left_join(shootings_year_month, by = c("pct", "year", "month"))
 
 #' add precinct area (derived from sf geometries) and build the final monthly panel.
 #'
@@ -310,6 +308,12 @@ test_pct_crime_month <- test_pct_crime_month %>%
     left_join(pct_areas, by = c("pct" = "Precinct")) %>%
     mutate(pop_density = total_pop / area_sq_miles)
 
+  test_pct_crime_month <- test_pct_crime_month %>%
+    filter(total_pop > 0) %>%
+    mutate(shooting_rate = log((shootings + 1) / total_pop * 1000))
+  
+  summary(test_pct_crime_month$shooting_rate)
+  
   # Sort by precinct and date for proper lagging
   test_pct_month_full <- test_pct_month_full %>%
     mutate(date = date.x,
@@ -317,7 +321,7 @@ test_pct_crime_month <- test_pct_crime_month %>%
            year = year.x) %>%
     select(-date.x, -date.y, -month.x, -month.y, -year.x, -year.y) %>%
     arrange(pct, date)
-
+  
 # Create lagged variables (1-month lags, within precinct)
   
   # Create one-month lagged crime rates by precinct
